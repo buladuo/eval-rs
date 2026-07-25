@@ -58,7 +58,11 @@ pub trait Metric: Send + Sync {
     /// # Errors
     ///
     /// 参数校验失败、计算异常等。
-    async fn evaluate(&self, params: &HashMap<String, Value>, input: &Value) -> Result<MetricOutput, EvalError>;
+    async fn evaluate(
+        &self,
+        params: &HashMap<String, Value>,
+        input: &Value,
+    ) -> Result<MetricOutput, EvalError>;
 }
 
 /// 指标输出

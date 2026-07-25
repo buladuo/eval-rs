@@ -2,10 +2,10 @@
 //!
 //! 提供评测结果的查询、详情查看和聚合统计功能（罗盘）。
 
+use axum::Json;
 use axum::extract::{Path, Query, State};
 use axum::http::header::{self, HeaderMap};
 use axum::response::IntoResponse;
-use axum::Json;
 
 use crate::api::routes::AppState;
 use crate::error::EvalError;
@@ -110,7 +110,9 @@ pub async fn download_result_by_id(
     headers.insert(header::CONTENT_TYPE, "application/json".parse().unwrap());
     headers.insert(
         header::CONTENT_DISPOSITION,
-        format!("attachment; filename=\"{}\"", filename).parse().unwrap(),
+        format!("attachment; filename=\"{}\"", filename)
+            .parse()
+            .unwrap(),
     );
 
     Ok((headers, body))
@@ -140,10 +142,7 @@ pub async fn download_results_by_query(
     }
 
     // 用 metric 名和时间戳构造文件名
-    let metric_part = params
-        .metric
-        .as_deref()
-        .unwrap_or("all");
+    let metric_part = params.metric.as_deref().unwrap_or("all");
     let timestamp = chrono::Utc::now().format("%Y%m%d-%H%M%S");
     let filename = format!("eval-results-{}-{}.json", metric_part, timestamp);
 
@@ -154,7 +153,9 @@ pub async fn download_results_by_query(
     headers.insert(header::CONTENT_TYPE, "application/json".parse().unwrap());
     headers.insert(
         header::CONTENT_DISPOSITION,
-        format!("attachment; filename=\"{}\"", filename).parse().unwrap(),
+        format!("attachment; filename=\"{}\"", filename)
+            .parse()
+            .unwrap(),
     );
 
     Ok((headers, body))

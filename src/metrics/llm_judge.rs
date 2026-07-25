@@ -14,7 +14,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{Metric, MetricOutput};
 use crate::error::EvalError;
@@ -119,7 +119,11 @@ impl Metric for LlmJudgeMetric {
     }
 
     /// 通过 LLM 评估输入并解析评分
-    async fn evaluate(&self, params: &HashMap<String, Value>, input: &Value) -> Result<MetricOutput, EvalError> {
+    async fn evaluate(
+        &self,
+        params: &HashMap<String, Value>,
+        input: &Value,
+    ) -> Result<MetricOutput, EvalError> {
         let provider = params.get("provider").and_then(|v| v.as_str());
         let model = params.get("model").and_then(|v| v.as_str());
         let version = params
@@ -151,7 +155,10 @@ impl Metric for LlmJudgeMetric {
         let prompt = self.prompts.render(template, context)?;
 
         // 调用 LLM
-        let response = self.providers.complete(provider, &prompt, model, None).await?;
+        let response = self
+            .providers
+            .complete(provider, &prompt, model, None)
+            .await?;
 
         // 解析评分（正则优先，fallback 到 JSON/数字/标签解析）
         let (score, parsed_details) = parse_judge_response(&response, response_regex, score_scale)?;
@@ -219,7 +226,11 @@ fn parse_judge_response(
 /// 对提取出的字符串进行 JSON / 数字解析
 ///
 /// `source_regex` 仅用于在 details 中标注来源，可为 None。
-fn parse_extracted(text: &str, score_scale: f64, source_regex: Option<&str>) -> Result<(f64, Value), EvalError> {
+fn parse_extracted(
+    text: &str,
+    score_scale: f64,
+    source_regex: Option<&str>,
+) -> Result<(f64, Value), EvalError> {
     let trimmed = text.trim();
 
     // 2.1 完整 JSON 对象
@@ -305,7 +316,17 @@ fn parse_extracted(text: &str, score_scale: f64, source_regex: Option<&str>) -> 
 /// - `evaluation` / `Evaluation`
 /// - `result` / `Result`
 fn extract_score_from_json(json_val: &Value) -> Option<f64> {
-    let candidates = ["score", "Score", "SCORE", "rating", "Rating", "evaluation", "Evaluation", "result", "Result"];
+    let candidates = [
+        "score",
+        "Score",
+        "SCORE",
+        "rating",
+        "Rating",
+        "evaluation",
+        "Evaluation",
+        "result",
+        "Result",
+    ];
     for key in candidates {
         if let Some(v) = json_val.get(key) {
             if let Some(n) = v.as_f64() {
@@ -330,8 +351,7 @@ fn extract_score_from_json(json_val: &Value) -> Option<f64> {
 /// - 文本中第一个 `{...}` 块
 fn extract_embedded_json(text: &str) -> Option<Value> {
     // 代码块中的 JSON
-    let code_block_re = regex::Regex::new(r"```(?:json)?\s*(\{.*?\})\s*```")
-        .ok()?;
+    let code_block_re = regex::Regex::new(r"```(?:json)?\s*(\{.*?\})\s*```").ok()?;
     if let Some(caps) = code_block_re.captures(text)
         && let Some(m) = caps.get(1)
         && let Ok(v) = serde_json::from_str::<Value>(m.as_str())
@@ -396,22 +416,19 @@ mod tests {
 
     #[test]
     fn test_parse_json_with_label() {
-        let (score, _) =
-            parse_judge_response(r#"{"Score": 0.78}"#, None, 100.0).unwrap();
+        let (score, _) = parse_judge_response(r#"{"Score": 0.78}"#, None, 100.0).unwrap();
         assert!((score - 0.78).abs() < 0.001);
     }
 
     #[test]
     fn test_parse_json_string_score() {
-        let (score, _) =
-            parse_judge_response(r#"{"score": "0.88"}"#, None, 100.0).unwrap();
+        let (score, _) = parse_judge_response(r#"{"score": "0.88"}"#, None, 100.0).unwrap();
         assert!((score - 0.88).abs() < 0.001);
     }
 
     #[test]
     fn test_parse_json_rating_field() {
-        let (score, _) =
-            parse_judge_response(r#"{"rating": 4, "max": 5}"#, None, 5.0).unwrap();
+        let (score, _) = parse_judge_response(r#"{"rating": 4, "max": 5}"#, None, 5.0).unwrap();
         assert!((score - 0.8).abs() < 0.001);
     }
 
@@ -450,12 +467,7 @@ mod tests {
     #[test]
     fn test_parse_with_regex_whole_match() {
         // 无捕获组，整体匹配后解析为数字
-        let (score, _) = parse_judge_response(
-            "0.91",
-            Some(r"\d+\.\d+"),
-            100.0,
-        )
-        .unwrap();
+        let (score, _) = parse_judge_response("0.91", Some(r"\d+\.\d+"), 100.0).unwrap();
         assert!((score - 0.91).abs() < 0.001);
     }
 
@@ -463,12 +475,7 @@ mod tests {
     fn test_parse_with_regex_extract_json() {
         // 用正则提取 JSON 片段
         let resp = "```json\n{\"score\": 0.77, \"reason\": \"ok\"}\n```";
-        let (score, _) = parse_judge_response(
-            resp,
-            Some(r"\{[^{}]*\}"),
-            100.0,
-        )
-        .unwrap();
+        let (score, _) = parse_judge_response(resp, Some(r"\{[^{}]*\}"), 100.0).unwrap();
         assert!((score - 0.77).abs() < 0.001);
     }
 
@@ -498,8 +505,7 @@ mod tests {
     #[test]
     fn test_parse_regex_invalid_falls_back() {
         // 无效正则应 fallback 到默认解析，而不是报错
-        let (score, _) =
-            parse_judge_response("0.5", Some(r"("), 100.0).unwrap();
+        let (score, _) = parse_judge_response("0.5", Some(r"("), 100.0).unwrap();
         assert!((score - 0.5).abs() < 0.001);
     }
 

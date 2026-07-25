@@ -2,8 +2,8 @@
 //!
 //! 接收评测请求，调用引擎执行评测，返回结果。
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 
 use crate::api::models::{EvalRequestBody, EvalResponse};
 use crate::api::routes::AppState;

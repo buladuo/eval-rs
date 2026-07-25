@@ -3,8 +3,8 @@
 //! 返回服务健康状态，探测 SQLite 连通性和 LLM Provider 可用性。
 //! 适用于 Kubernetes / 负载均衡器健康探测。
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 
 use crate::api::models::{DependencyHealth, HealthResponse};
 use crate::api::routes::AppState;

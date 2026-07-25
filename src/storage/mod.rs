@@ -7,8 +7,8 @@
 //! - 按分数范围过滤
 //! - 聚合统计（平均分、最大/最小、计数等）
 
-pub mod store;
 pub mod models;
+pub mod store;
 
+pub use models::{AggregationResult, EvalResultRow, QueryParams};
 pub use store::SqliteStore;
-pub use models::{EvalResultRow, QueryParams, AggregationResult};

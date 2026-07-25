@@ -17,9 +17,9 @@
 //! | 评测错误           | `EvalTimeout`、`JudgeParseFailed` | 504/422 |
 //! | 内部错误           | `Internal`                    | 500                     |
 
+use axum::Json;
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
-use axum::Json;
 use serde_json::json;
 
 /// 统一的评测错误类型
@@ -118,26 +118,72 @@ pub enum EvalError {
 impl IntoResponse for EvalError {
     fn into_response(self) -> Response {
         let (status, error_code, details) = match &self {
-            EvalError::ConfigError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "config_error", msg.clone()),
-            EvalError::ProviderNotConfigured(name) => (StatusCode::BAD_REQUEST, "provider_not_configured", name.clone()),
-            EvalError::LlmCallError(msg) => (StatusCode::BAD_GATEWAY, "llm_call_error", msg.clone()),
-            EvalError::LlmRetryExhausted(msg) => (StatusCode::BAD_GATEWAY, "llm_retry_exhausted", msg.clone()),
-            EvalError::RateLimitTimeout => (StatusCode::TOO_MANY_REQUESTS, "rate_limit_timeout", String::new()),
-            EvalError::RateLimited { retry_after } => {
-                (StatusCode::TOO_MANY_REQUESTS, "rate_limited", format!("建议 {retry_after:?} 后重试"))
+            EvalError::ConfigError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "config_error",
+                msg.clone(),
+            ),
+            EvalError::ProviderNotConfigured(name) => (
+                StatusCode::BAD_REQUEST,
+                "provider_not_configured",
+                name.clone(),
+            ),
+            EvalError::LlmCallError(msg) => {
+                (StatusCode::BAD_GATEWAY, "llm_call_error", msg.clone())
             }
+            EvalError::LlmRetryExhausted(msg) => {
+                (StatusCode::BAD_GATEWAY, "llm_retry_exhausted", msg.clone())
+            }
+            EvalError::RateLimitTimeout => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "rate_limit_timeout",
+                String::new(),
+            ),
+            EvalError::RateLimited { retry_after } => (
+                StatusCode::TOO_MANY_REQUESTS,
+                "rate_limited",
+                format!("建议 {retry_after:?} 后重试"),
+            ),
             EvalError::Timeout(d) => (StatusCode::GATEWAY_TIMEOUT, "timeout", format!("{d:?}")),
-            EvalError::MetricNotFound(name) => (StatusCode::NOT_FOUND, "metric_not_found", name.clone()),
-            EvalError::InvalidParams(msg) => (StatusCode::BAD_REQUEST, "invalid_params", msg.clone()),
-            EvalError::MetricExecutionError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "metric_execution_error", msg.clone()),
-            EvalError::PromptNotFound(name) => (StatusCode::NOT_FOUND, "prompt_not_found", name.clone()),
-            EvalError::InvalidPromptVariables(msg) => (StatusCode::BAD_REQUEST, "invalid_prompt_variables", msg.clone()),
-            EvalError::PromptRenderError(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "prompt_render_error", msg.clone()),
-            EvalError::JsonPathNotFound(path) => (StatusCode::BAD_REQUEST, "path_not_found", path.clone()),
+            EvalError::MetricNotFound(name) => {
+                (StatusCode::NOT_FOUND, "metric_not_found", name.clone())
+            }
+            EvalError::InvalidParams(msg) => {
+                (StatusCode::BAD_REQUEST, "invalid_params", msg.clone())
+            }
+            EvalError::MetricExecutionError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "metric_execution_error",
+                msg.clone(),
+            ),
+            EvalError::PromptNotFound(name) => {
+                (StatusCode::NOT_FOUND, "prompt_not_found", name.clone())
+            }
+            EvalError::InvalidPromptVariables(msg) => (
+                StatusCode::BAD_REQUEST,
+                "invalid_prompt_variables",
+                msg.clone(),
+            ),
+            EvalError::PromptRenderError(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "prompt_render_error",
+                msg.clone(),
+            ),
+            EvalError::JsonPathNotFound(path) => {
+                (StatusCode::BAD_REQUEST, "path_not_found", path.clone())
+            }
             EvalError::RegexNoMatch => (StatusCode::BAD_REQUEST, "regex_no_match", String::new()),
             EvalError::EvalTimeout => (StatusCode::GATEWAY_TIMEOUT, "eval_timeout", String::new()),
-            EvalError::JudgeParseFailed(msg) => (StatusCode::UNPROCESSABLE_ENTITY, "judge_parse_failed", msg.clone()),
-            EvalError::Internal(msg) => (StatusCode::INTERNAL_SERVER_ERROR, "internal_error", msg.clone()),
+            EvalError::JudgeParseFailed(msg) => (
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "judge_parse_failed",
+                msg.clone(),
+            ),
+            EvalError::Internal(msg) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "internal_error",
+                msg.clone(),
+            ),
         };
 
         let body = json!({

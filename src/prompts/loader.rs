@@ -20,8 +20,8 @@ pub fn load_prompts_from_dir(dir: &str) -> Result<Vec<PromptTemplate>, EvalError
 
     let mut templates = Vec::new();
 
-    let entries = fs::read_dir(path)
-        .map_err(|e| EvalError::Internal(format!("读取提示词目录失败: {e}")))?;
+    let entries =
+        fs::read_dir(path).map_err(|e| EvalError::Internal(format!("读取提示词目录失败: {e}")))?;
 
     for entry in entries {
         let entry = entry.map_err(|e| EvalError::Internal(format!("读取目录项失败: {e}")))?;

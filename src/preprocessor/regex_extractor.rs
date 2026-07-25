@@ -14,9 +14,7 @@ pub fn extract_by_regex(text: &str, pattern: &str) -> Result<String, EvalError> 
     let re = Regex::new(pattern)
         .map_err(|e| EvalError::InvalidParams(format!("无效的正则表达式: {e}")))?;
 
-    let caps = re
-        .captures(text)
-        .ok_or(EvalError::RegexNoMatch)?;
+    let caps = re.captures(text).ok_or(EvalError::RegexNoMatch)?;
 
     // 优先返回第一个捕获组，否则返回整个匹配
     let matched = caps

@@ -23,8 +23,8 @@ use std::sync::Arc;
 use crate::error::EvalError;
 use crate::metrics::registry::MetricRegistry;
 use crate::preprocessor::PreprocessConfig;
-use crate::provider::manager::ProviderManager;
 use crate::prompts::registry::PromptRegistry;
+use crate::provider::manager::ProviderManager;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::mpsc;
@@ -97,19 +97,11 @@ impl EvalEngine {
         // 启动后台 worker 消费写入任务
         let store_clone = store.clone();
         tokio::spawn(async move {
-            tracing::info!(
-                capacity = STORAGE_QUEUE_CAPACITY,
-                "存储写入 worker 已启动"
-            );
+            tracing::info!(capacity = STORAGE_QUEUE_CAPACITY, "存储写入 worker 已启动");
             while let Some(task) = rx.recv().await {
                 let provider_name = task.request.provider.as_deref();
-                let model_name = task
-                    .request
-                    .params
-                    .get("model")
-                    .and_then(|v| v.as_str());
-                let params_json =
-                    serde_json::to_value(&task.request.params).unwrap_or(Value::Null);
+                let model_name = task.request.params.get("model").and_then(|v| v.as_str());
+                let params_json = serde_json::to_value(&task.request.params).unwrap_or(Value::Null);
                 if let Err(e) = store_clone
                     .insert(
                         &task.result.request_id,

@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{Metric, MetricOutput};
 use crate::error::EvalError;
@@ -41,7 +41,11 @@ impl Metric for BleuMetric {
     }
 
     /// 执行 BLEU 评测
-    async fn evaluate(&self, params: &HashMap<String, Value>, input: &Value) -> Result<MetricOutput, EvalError> {
+    async fn evaluate(
+        &self,
+        params: &HashMap<String, Value>,
+        input: &Value,
+    ) -> Result<MetricOutput, EvalError> {
         let reference = input
             .get("reference")
             .and_then(|v| v.as_str())
@@ -51,10 +55,7 @@ impl Metric for BleuMetric {
             .and_then(|v| v.as_str())
             .ok_or_else(|| EvalError::InvalidParams("缺少 hypothesis 字段".to_string()))?;
 
-        let max_n = params
-            .get("n")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(4) as usize;
+        let max_n = params.get("n").and_then(|v| v.as_u64()).unwrap_or(4) as usize;
 
         let max_n = max_n.clamp(1, 4);
 

@@ -102,7 +102,9 @@ impl RigProvider {
     }
 
     /// 从 CompletionResponse 中提取文本内容
-    fn extract_text(response: rig::completion::CompletionResponse<impl Sized>) -> Result<String, EvalError> {
+    fn extract_text(
+        response: rig::completion::CompletionResponse<impl Sized>,
+    ) -> Result<String, EvalError> {
         for content in response.choice.iter() {
             if let AssistantContent::Text(text) = content {
                 return Ok(text.text.clone());

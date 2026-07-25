@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{Metric, MetricOutput};
 use crate::error::EvalError;
@@ -62,7 +62,11 @@ impl Metric for PerplexityMetric {
     }
 
     /// 执行 perplexity 评测
-    async fn evaluate(&self, params: &HashMap<String, Value>, input: &Value) -> Result<MetricOutput, EvalError> {
+    async fn evaluate(
+        &self,
+        params: &HashMap<String, Value>,
+        input: &Value,
+    ) -> Result<MetricOutput, EvalError> {
         let text = input
             .get("text")
             .and_then(|v| v.as_str())
@@ -76,7 +80,10 @@ impl Metric for PerplexityMetric {
             "请评估以下文本的自然度与流畅度，返回一个 1-100 的整数评分（越低表示越困惑、越不自然）：\n\n{text}\n\n请仅返回数字。"
         );
 
-        let response = self.providers.complete(provider, &prompt, model, None).await?;
+        let response = self
+            .providers
+            .complete(provider, &prompt, model, None)
+            .await?;
 
         // 解析 LLM 返回的评分
         let score = response
@@ -85,11 +92,7 @@ impl Metric for PerplexityMetric {
             .map_err(|_| EvalError::JudgeParseFailed(response.clone()))?;
 
         // 将评分转换为 perplexity 表示（评分越高，perplexity 越低）
-        let perplexity = if score > 0.0 {
-            100.0 / score
-        } else {
-            f64::MAX
-        };
+        let perplexity = if score > 0.0 { 100.0 / score } else { f64::MAX };
 
         Ok(MetricOutput {
             score: perplexity,

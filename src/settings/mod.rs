@@ -226,18 +226,21 @@ impl Default for StorageConfig {
 ///
 /// 配置文件解析失败返回 [`EvalError::ConfigError`]。
 pub fn load_config() -> Result<AppConfig, EvalError> {
-    let config_path = std::env::var("EVAL_CONFIG_PATH")
-        .unwrap_or_else(|_| "config/default.toml".to_string());
+    let config_path =
+        std::env::var("EVAL_CONFIG_PATH").unwrap_or_else(|_| "config/default.toml".to_string());
 
     let mut cfg = ::config::Config::builder();
 
     // 加载默认配置文件（不存在时不报错）
-    cfg = cfg.add_source(::config::File::with_name(&config_path.replace(".toml", "")).required(false));
+    cfg = cfg
+        .add_source(::config::File::with_name(&config_path.replace(".toml", "")).required(false));
 
     // 环境变量覆盖（前缀 EVAL_，双下划线 __ 表示嵌套）
     cfg = cfg.add_source(::config::Environment::with_prefix("EVAL").separator("__"));
 
-    let settings = cfg.build().map_err(|e| EvalError::ConfigError(e.to_string()))?;
+    let settings = cfg
+        .build()
+        .map_err(|e| EvalError::ConfigError(e.to_string()))?;
 
     let app_config: AppConfig = settings
         .try_deserialize()

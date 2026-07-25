@@ -13,9 +13,9 @@
 use std::collections::HashMap;
 
 use crate::error::EvalError;
+use crate::prompts::PromptTemplate;
 use crate::prompts::loader;
 use crate::prompts::renderer;
-use crate::prompts::PromptTemplate;
 
 /// 提示词注册表
 ///
@@ -118,7 +118,11 @@ impl PromptRegistry {
     /// # Errors
     ///
     /// 渲染失败返回 [`EvalError::PromptRenderError`]。
-    pub fn render(&self, template: &PromptTemplate, context: tera::Context) -> Result<String, EvalError> {
+    pub fn render(
+        &self,
+        template: &PromptTemplate,
+        context: tera::Context,
+    ) -> Result<String, EvalError> {
         renderer::render(template, context)
     }
 

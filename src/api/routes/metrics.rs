@@ -2,8 +2,8 @@
 //!
 //! 返回所有已注册指标的元信息（名称、类型、参数 schema）。
 
-use axum::extract::State;
 use axum::Json;
+use axum::extract::State;
 
 use crate::api::models::MetricsListResponse;
 use crate::api::routes::AppState;

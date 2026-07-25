@@ -11,12 +11,12 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
+use super::LlmProvider;
 use super::concurrency::ConcurrencyLimiter;
 use super::rate_limiter::RateLimiter;
 use super::retry::RetryPolicy;
 use super::rig_provider::RigProvider;
 use super::token_limiter::TokenLimiter;
-use super::LlmProvider;
 use crate::error::EvalError;
 use crate::settings::{LimitsConfig, ProviderConfig};
 
@@ -52,10 +52,7 @@ impl ProviderManager {
     ///
     /// * `provider_configs` - provider 配置映射
     /// * `limits` - 全局限流配置
-    pub fn new(
-        provider_configs: HashMap<String, ProviderConfig>,
-        limits: &LimitsConfig,
-    ) -> Self {
+    pub fn new(provider_configs: HashMap<String, ProviderConfig>, limits: &LimitsConfig) -> Self {
         let mut providers: HashMap<String, Box<dyn LlmProvider>> = HashMap::new();
         let mut default_provider = None;
 
@@ -196,9 +193,7 @@ impl ProviderManager {
         let _permit = self.concurrency_limiter.acquire().await?;
 
         // RPM 限流（带等待超时）
-        self.rate_limiter
-            .acquire(RATE_LIMIT_WAIT_TIMEOUT)
-            .await?;
+        self.rate_limiter.acquire(RATE_LIMIT_WAIT_TIMEOUT).await?;
 
         // Token 限流（可选，带等待超时）
         if let Some(ref token_limiter) = self.token_limiter {

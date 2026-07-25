@@ -8,7 +8,7 @@
 use std::collections::{HashMap, HashSet};
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::registry::{Metric, MetricOutput};
 use crate::error::EvalError;
@@ -44,7 +44,11 @@ impl Metric for RougeMetric {
     }
 
     /// 执行 ROUGE 评测
-    async fn evaluate(&self, params: &HashMap<String, Value>, input: &Value) -> Result<MetricOutput, EvalError> {
+    async fn evaluate(
+        &self,
+        params: &HashMap<String, Value>,
+        input: &Value,
+    ) -> Result<MetricOutput, EvalError> {
         let reference = input
             .get("reference")
             .and_then(|v| v.as_str())
@@ -62,10 +66,7 @@ impl Metric for RougeMetric {
         match variant {
             "l" => Ok(compute_rouge_l(reference, hypothesis)),
             _ => {
-                let n = params
-                    .get("n")
-                    .and_then(|v| v.as_u64())
-                    .unwrap_or(1) as usize;
+                let n = params.get("n").and_then(|v| v.as_u64()).unwrap_or(1) as usize;
                 Ok(compute_rouge_n(reference, hypothesis, n))
             }
         }
@@ -150,10 +151,7 @@ fn get_ngrams(text: &str, n: usize) -> HashSet<String> {
     if words.len() < n {
         return HashSet::new();
     }
-    words
-        .windows(n)
-        .map(|w| w.join(" "))
-        .collect()
+    words.windows(n).map(|w| w.join(" ")).collect()
 }
 
 /// 计算最长公共子序列长度（动态规划，O(m*n)）

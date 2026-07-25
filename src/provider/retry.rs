@@ -93,9 +93,7 @@ mod tests {
     #[tokio::test]
     async fn test_retry_success_on_first_try() {
         let policy = RetryPolicy::new(3, 10);
-        let result = policy
-            .execute(|| async { Ok::<_, EvalError>(42) })
-            .await;
+        let result = policy.execute(|| async { Ok::<_, EvalError>(42) }).await;
         assert_eq!(result.unwrap(), 42);
     }
 
