@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你对本项目的关注！我们欢迎所有形式的贡献。
+感谢你为 **eval-rs** 做出贡献！本文件说明如何搭建开发环境、遵循的代码规范，以及如何扩展核心能力（指标、Provider、提示词）。
 
 ## 行为准则
 
@@ -18,7 +18,8 @@
 
 ### 前置要求
 
-- Rust 1.70+ （推荐使用 rustup）
+- **Rust 1.85+**（项目使用 `edition = "2024"`，请确保工具链足够新：`rustup update stable`）
+- 一个可用的 LLM Provider（OpenAI / Anthropic 或任意 OpenAI 兼容端点），用于运行涉及 LLM 的测试 / 手动验证（纯 NLP 指标不依赖）
 - Git
 
 ### 安装依赖
@@ -34,6 +35,10 @@ rustup update stable
 # 安装开发工具
 rustup component add rustfmt clippy
 
+# 配置环境变量（API 密钥等，纯 NLP 指标可跳过）
+cp .env.example .env
+# 编辑 .env，填入 EVAL_PROVIDERS__<NAME>__API_KEY
+
 # 构建项目
 cargo build
 
@@ -45,12 +50,24 @@ cargo test
 
 ```
 .
-├── src/           # 源代码
-├── tests/         # 集成测试
-├── benches/       # 性能测试
-├── examples/      # 示例代码
-└── docs/          # 文档
+├── src/                    # 源代码（按职责分层，测试内联在各模块 #[cfg(test)] 中）
+│   ├── api/                # HTTP 层（axum 路由、请求/响应模型、错误映射）
+│   ├── engine/             # 评测引擎（编排单次评测、指标路由、存储背压）
+│   ├── metrics/            # 指标注册表与 Metric trait；LLM-as-Judge 与 NLP 指标
+│   ├── provider/           # LLM 调用封装（多 Provider、重试、并发、限流）
+│   ├── prompts/            # 提示词注册、TOML 加载、tera 渲染
+│   ├── preprocessor/       # 输入预处理（JSONPath / 正则提取）
+│   ├── storage/            # SQLite 持久化与查询/聚合
+│   ├── settings/           # 配置加载（TOML + 环境变量覆盖）
+│   ├── error/              # 统一错误类型 EvalError
+│   └── logging/            # tracing 日志初始化
+├── prompts/                # 提示词模板（TOML + tera，如 llm_judge_accuracy.toml）
+├── config/                 # 运行配置（default.toml）
+├── docs/                   # 调研与文档（ragas_metrics.md、eval_frameworks.md）
+└── .env.example            # 环境变量样例
 ```
+
+> 集成测试目前以内联方式写在各模块 `#[cfg(test)]` 中；如需独立的端到端测试，可新建 `tests/` 目录。
 
 ## 开发流程
 
@@ -77,8 +94,8 @@ git checkout -b fix/<username>/issue-description
 
 **示例：**
 ```bash
-git checkout -b feature/weizhikong/add-json-parser
-git checkout -b fix/weizhikong/unicode-escape-bug
+git checkout -b feature/weizhikong/add-hallucination-metric
+git checkout -b fix/weizhikong/storage-backpressure-drop
 git checkout -b docs/weizhikong/api-examples
 git checkout -b refactor/weizhikong/simplify-error-handling
 ```
@@ -95,8 +112,11 @@ git checkout -b refactor/weizhikong/simplify-error-handling
 - 遵循 Rust 官方编码风格
 - 使用 `rustfmt` 格式化代码
 - 通过 `clippy` 检查
-- 添加必要的注释和文档
-- 为公共 API 编写文档注释（`///`）
+- 公开文档注释与代码注释使用**简体中文**；代码标识符、命令保持英文
+- 为公共 API（`pub` 项、trait、unsafe 代码）编写文档注释（`///` / `//!`），含必要的 `# Arguments` / `# Returns` / `# Errors` / `# Panics` / `# Safety` / `# Examples`
+- `unsafe` 代码必须附 `// SAFETY:` 说明安全契约
+- 统一使用 `error::EvalError`（`thiserror`），不在业务代码中裸用 `unwrap()` / `expect()`（测试与示例除外）
+- 使用 `tracing` 的 `info!` / `warn!` / `error!` 宏记录日志，附结构化字段（如 `metric`、`request_id`）
 
 ### 3. 质量检查
 
@@ -107,16 +127,16 @@ git checkout -b refactor/weizhikong/simplify-error-handling
 cargo fmt --all
 
 # 2. 编译检查
-cargo check --all-targets --all-features
+cargo check --all-targets
 
 # 3. Clippy 静态分析
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets -- -D warnings
 
 # 4. 运行所有测试
-cargo test --all-features
+cargo test
 
 # 5. 检查文档
-cargo doc --no-deps --all-features
+cargo doc --no-deps
 ```
 
 **一键检查脚本：**
@@ -131,13 +151,13 @@ echo "🔍 Running cargo fmt..."
 cargo fmt --all -- --check
 
 echo "🔍 Running cargo check..."
-cargo check --all-targets --all-features
+cargo check --all-targets
 
 echo "🔍 Running cargo clippy..."
-cargo clippy --all-targets --all-features -- -D warnings
+cargo clippy --all-targets -- -D warnings
 
 echo "🔍 Running cargo test..."
-cargo test --all-features
+cargo test
 
 echo "✅ All checks passed!"
 ```
@@ -183,10 +203,10 @@ echo "✅ All checks passed!"
 - `chore`: 构建/工具链相关
 
 **Scope 范围：**
-模块名或功能域，如：`parser`、`api`、`utils`、`core`
+模块名或功能域，如：`metrics`、`provider`、`api`、`storage`、`engine`
 
 **Subject 主题：**
-- 使用祈使句，现在时态："添加功能" 而非 "添加了功能"
+- 使用祈使句，现在时态："添加指标" 而非 "添加了指标"
 - 首字母小写
 - 结尾不加句号
 - 限制在 50 字符以内
@@ -194,124 +214,87 @@ echo "✅ All checks passed!"
 **示例 Commit 1 - Bug 修复：**
 
 ```
-fix(parser): 修复 JSON 解析器处理转义字符错误
+fix(storage): 修复聚合统计缺失时间范围过滤
 
 [背景说明]
-在解析包含 Unicode 转义序列（如 \uXXXX）的 JSON 字符串时，
-解析器会错误地将反斜杠作为普通字符处理，导致解析失败。
-问题由用户在 issue #123 中报告，影响所有包含 Unicode 字符的 JSON 数据。
+store.rs 的 aggregate 标准差子查询未应用 start_time/end_time 过滤，
+导致聚合结果与列表查询的时间范围不一致，统计值被历史数据污染。
 
 [处理方式]
-1. 在词法分析阶段添加转义序列识别逻辑
-2. 使用状态机处理 \u 后的 4 位十六进制数字
-3. 将识别的 Unicode 码点转换为 UTF-8 字符
-4. 添加错误处理，对无效的转义序列返回明确的错误信息
+1. 在标准差子查询中复用与列表查询相同的时间范围条件
+2. 新增回归测试 test_aggregate_with_time_range_filters_stddev 覆盖该场景
 
 [改动清单]
-- src/parser/lexer.rs: 添加 parse_unicode_escape() 函数 (45 行)
-- src/parser/lexer.rs: 修改 parse_string() 状态机逻辑，增加转义处理分支
-- src/parser/error.rs: 新增 InvalidUnicodeEscape 错误类型
-- tests/parser_tests.rs: 新增 10 个 Unicode 转义测试用例
-- tests/parser_tests.rs: 新增 5 个错误处理测试用例
-- benches/parser_bench.rs: 添加转义字符性能基准测试
+- src/storage/store.rs: aggregate 标准差子查询添加时间范围绑定参数
+- src/storage/store.rs: 新增 test_aggregate_with_time_range_filters_stddev
 
 [结果结论]
-修复后所有测试用例通过，包括原有的 156 个测试和新增的 15 个测试。
-性能测试显示对不含转义字符的字符串无影响，含转义字符的解析
-速度提升约 15%（优化了字符复制逻辑）。用户报告的问题已解决。
+聚合与列表查询在相同时间范围内结果一致；回归测试通过。
 
 [质量检查]
 - cargo fmt: ✅ 通过
 - cargo check: ✅ 通过
-- cargo clippy: ✅ 通过（修复了 2 个 clippy::needless_borrow 警告）
-- cargo test: ✅ 通过 (171/171 tests, +15 new)
-- cargo bench: ✅ 通过（性能无回归，转义场景提升 15%）
-
-Closes #123
+- cargo clippy: ✅ 通过
+- cargo test: ✅ 通过 (新增 1 个测试)
 ```
 
 **示例 Commit 2 - 新功能：**
 
 ```
-feat(api): 添加异步 HTTP 客户端支持
+feat(metrics): 新增 llm_judge_hallucination 指标
 
 [背景说明]
-当前项目只支持同步 HTTP 请求，在处理大量并发请求时性能受限。
-用户反馈在微服务场景下需要异步请求能力以提升吞吐量。
-参考 issue #234 和 #256 中的讨论。
+现有 LLM-as-Judge 指标缺少幻觉检测维度，用户希望在 RAG 场景下评估
+回答是否被检索上下文支撑。
 
 [处理方式]
-1. 基于 tokio 和 reqwest 实现异步 HTTP 客户端
-2. 保持与现有同步 API 一致的接口设计
-3. 添加 "async" feature flag，默认不启用以保持向后兼容
-4. 实现连接池和超时控制
-5. 提供 async/await 友好的 API
+1. 在 prompts/ 新增 llm_judge_hallucination.toml（tera 模板，输出 JSON）
+2. 复用 LlmJudgeMetric 注册该提示词对应的指标
+3. 在引擎初始化处将其注册到 MetricRegistry
 
 [改动清单]
-- Cargo.toml: 添加 tokio、reqwest 依赖（仅在 async feature 下）
-- src/client/async_client.rs: 新增异步客户端实现 (328 行)
-- src/client/mod.rs: 导出异步客户端模块
-- src/client/config.rs: 扩展配置支持异步选项
-- examples/async_example.rs: 添加异步使用示例
-- docs/async-guide.md: 新增异步使用指南文档
-- tests/async_integration_test.rs: 添加 25 个异步集成测试
+- prompts/llm_judge_hallucination.toml: 新增提示词模板
+- src/metrics/llm_judge.rs: 适配 hallucination 的输出解析
+- src/main.rs: 注册新指标到 MetricRegistry
+- src/metrics/llm_judge.rs: 新增单元测试
 
 [结果结论]
-实现了完整的异步 HTTP 客户端功能，API 设计与同步版本保持一致。
-性能测试显示在 1000 并发请求场景下，吞吐量提升 3.2 倍，
-延迟降低 60%。通过 feature flag 控制，不影响现有用户。
+通过 POST /v1/eval 以 metric=llm_judge_hallucination 调用可得 0~1 评分。
 
 [质量检查]
 - cargo fmt: ✅ 通过
-- cargo check: ✅ 通过（检查了 default 和 async features）
-- cargo clippy: ✅ 通过（无警告）
-- cargo test: ✅ 通过 (196/196 tests, +25 new)
-- cargo test --features async: ✅ 通过
-- cargo doc: ✅ 通过（文档生成正常）
-
-Closes #234
-Closes #256
+- cargo check: ✅ 通过
+- cargo clippy: ✅ 通过
+- cargo test: ✅ 通过 (新增 3 个测试)
 ```
 
 **示例 Commit 3 - 重构：**
 
 ```
-refactor(core): 简化错误处理机制
+refactor(error): 统一错误类型到 EvalError
 
 [背景说明]
-现有错误类型定义分散在多个模块中，错误转换逻辑复杂且重复。
-维护困难，添加新错误类型需要修改多处代码。同时错误信息
-对用户不够友好，缺少上下文信息。
+原有错误散落在各模块，错误转换逻辑重复且缺乏上下文。
+使用 thiserror 统一错误定义，并为 axum 实现 IntoResponse 以自动映射 HTTP 状态码。
 
 [处理方式]
-1. 使用 thiserror 统一错误定义
-2. 将所有错误类型集中到 src/error.rs
-3. 实现统一的错误转换 trait
-4. 为每个错误添加详细的上下文信息
-5. 移除冗余的错误包装代码
+1. 将所有错误类型集中到 src/error.rs 的 EvalError（thiserror）
+2. 为 EvalError 实现 axum::response::IntoResponse，按变体映射 HTTP 状态码
+3. 移除各模块的本地错误定义
 
 [改动清单]
-- Cargo.toml: 添加 thiserror 依赖
-- src/error.rs: 重构错误类型定义，从 456 行简化到 178 行
-- src/parser/mod.rs: 移除本地错误定义，使用统一错误类型
-- src/client/mod.rs: 移除本地错误定义，使用统一错误类型
-- src/core/mod.rs: 简化错误传播逻辑
-- 删除 src/parser/error.rs: 已合并到统一错误模块
-- 删除 src/client/error.rs: 已合并到统一错误模块
-- tests/error_tests.rs: 更新错误处理测试用例
+- src/error.rs: 集中定义 EvalError 并实现 IntoResponse
+- src/api/routes/*.rs: 统一返回 EvalError
+- src/*: 移除冗余错误包装
 
 [结果结论]
-错误处理代码总量减少约 35%，错误定义更加清晰统一。
-所有错误都包含了足够的上下文信息，便于调试。
-API 保持向后兼容，原有错误类型通过 type alias 保留。
-编译时间减少约 8%（减少了重复的派生宏展开）。
+错误处理更统一，Handler 可直接返回 EvalError；编译无警告。
 
 [质量检查]
 - cargo fmt: ✅ 通过
 - cargo check: ✅ 通过
-- cargo clippy: ✅ 通过（消除了 15 个重复代码警告）
-- cargo test: ✅ 通过 (171/171 tests, 无变化)
-- cargo build --release: ✅ 通过（二进制大小减少 12KB）
+- cargo clippy: ✅ 通过
+- cargo test: ✅ 通过
 ```
 
 ### 5. 提交前检查清单
@@ -324,7 +307,7 @@ API 保持向后兼容，原有错误类型通过 type alias 保留。
 - [ ] 所有测试通过 `cargo test`
 - [ ] 为新功能添加了测试
 - [ ] 为公共 API 添加了文档注释
-- [ ] 更新了 CHANGELOG.md（如果适用）
+- [ ] 修改了配置 / API 时同步更新 `README.md` 与 `config/default.toml` / `.env.example`
 - [ ] Commit message 符合规范并包含所有必需部分
 - [ ] 分支命名符合 `<type>/<username>/<description>` 格式
 
@@ -350,9 +333,9 @@ gh pr create --title "feat(scope): 简短描述" --body-file .github/pull_reques
 ```
 
 示例：
-- `feat(api): 添加异步 HTTP 客户端支持`
-- `fix(parser): 修复 Unicode 转义字符处理`
-- `docs(readme): 更新安装说明`
+- `feat(metrics): 新增 llm_judge_hallucination 指标`
+- `fix(storage): 修复聚合统计缺失时间范围过滤`
+- `docs(readme): 更新 API 参考`
 
 ### PR 描述模板
 
@@ -440,6 +423,43 @@ Refs #(related issue)
 - [ ] API 设计合理
 ```
 
+## 扩展指南（eval-rs 专属）
+
+### 新增一个指标
+
+指标需实现 `metrics::registry::Metric` trait，并在引擎初始化时注册到 `MetricRegistry`。
+
+**非 LLM 指标（纯函数，无提示词）：**
+
+1. 在 `src/metrics/` 下新建模块（参考 `bleu.rs` / `rouge.rs` / `perplexity.rs`）。
+2. 实现 `Metric`：`name()` 返回唯一名，`metric_type()` 返回 `"non_llm"`，`params_schema()` 描述参数，`evaluate()` 返回 `MetricOutput { score, details }`。
+3. 在 `src/main.rs` 的注册函数中 `metric_registry.register(Box::new(MyMetric))`。
+4. 补充单元测试。
+
+**LLM-as-Judge 指标：**
+
+1. 在 `prompts/` 下新增 TOML 提示词文件（参考 `llm_judge_accuracy.toml`），结构含 `name`、`version`、`description`、`template`（tera 语法）、`[variables.*]` 声明。
+2. 复用通用的 `LlmJudgeMetric`（或参照 `src/metrics/llm_judge.rs`）在引擎初始化处注册该提示词对应的指标。
+3. 提示词输出需为可解析的 JSON（如 `{"score": f64, "reason": str}`），`LlmJudgeMetric` 负责解析并映射为 `MetricOutput`。
+
+### 新增一个 Provider
+
+1. 实现 `provider::LlmProvider` trait（`complete(prompt, model)`）。
+2. 在 `src/provider/rig_provider.rs` 中基于 `rig` 封装对应类型（已有 OpenAI / Anthropic 兼容实现）。
+3. 在 `config/default.toml` 增加 `[providers.<name>]` 段落，设置 `provider_type` / `base_url` / `model` / `default`，密钥通过环境变量 `EVAL_PROVIDERS__<NAME>__API_KEY` 注入（请勿在配置文件中写入明文密钥）。
+
+### 新增提示词模板
+
+- 在 `prompts/` 目录新增 TOML，使用 tera 模板（`{{ variable }}`）。
+- 在 `[variables.<name>]` 中声明类型与是否必填，供加载器校验。
+- 提示词遵循「指令 + 输入变量 + 输出 JSON schema」的通用结构，便于与 Ragas 风格指标对齐。
+
+### 配置与环境变量
+
+配置优先级：**环境变量 `EVAL_*` > `config/default.toml` > Rust 默认值**。
+
+环境变量使用 `EVAL_` 前缀，双下划线 `__` 表示嵌套字段，例如 `EVAL_SERVER__PORT=9090`、`EVAL_PROVIDERS__GLM__API_KEY=sk-xxx`。完整样例见 `.env.example`。
+
 ## 测试要求
 
 ### 测试覆盖率目标
@@ -455,6 +475,8 @@ Refs #(related issue)
 - 边界条件
 - 错误情况
 - 特殊输入
+
+测试以内联方式写在各模块 `#[cfg(test)]` 中（参考 `src/metrics/bleu.rs`、`src/metrics/llm_judge.rs`）。涉及 LLM 的测试若需真实 Provider，可用 `mockall` 构造 mock，或用 `#[ignore]` 标记避免在无密钥的 CI 中失败。
 
 ```rust
 #[cfg(test)]
@@ -474,88 +496,46 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "error message")]
-    fn test_error_case() {
-        function_under_test(invalid_input);
-    }
-
-    #[test]
     fn test_error_result() {
         let result = fallible_function(invalid_input);
         assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "expected error message"
-        );
     }
 }
 ```
 
 ### 集成测试
 
-放置在 `tests/` 目录，测试模块间的交互：
+可放在 `tests/` 目录，测试模块间的交互：
 
 ```rust
 // tests/integration_test.rs
-use your_crate::*;
+use eval_rs::engine::EvalEngine;
+use eval_rs::metrics::registry::MetricRegistry;
 
-#[test]
-fn test_end_to_end_workflow() {
-    // 完整的使用场景测试
-    let client = Client::new();
-    let result = client.process(input);
-    assert!(result.is_ok());
+#[tokio::test]
+async fn test_end_to_end_eval() {
+    // 完整的使用场景测试（构造引擎、注册指标、执行评测）
 }
 ```
 
 ### 文档测试
 
-在文档注释中编写可执行的示例代码：
+在文档注释中编写可执行的示例代码（项目代码注释即大量使用此风格）：
 
 ```rust
-/// 计算两个数的和
+/// 计算两个评测分数的均值
 ///
 /// # Examples
 ///
 /// ```
-/// use your_crate::add;
+/// use eval_rs::metrics::registry::MetricOutput;
 ///
-/// let result = add(2, 3);
-/// assert_eq!(result, 5);
+/// let out = MetricOutput { score: 0.8, details: serde_json::Value::Null };
+/// assert!(out.score > 0.5);
 /// ```
-///
-/// # Edge Cases
-///
-/// ```
-/// use your_crate::add;
-///
-/// // 处理溢出
-/// let result = add(i32::MAX, 1);
-/// // 根据实际行为编写测试
-/// ```
-pub fn add(a: i32, b: i32) -> i32 {
-    a + b
-}
-```
-
-### 属性测试（推荐使用 proptest）
-
-对于复杂逻辑，使用属性测试验证不变量：
-
-```rust
-#[cfg(test)]
-mod proptests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        #[test]
-        fn test_reversible_operation(input in any::<i32>()) {
-            let encoded = encode(input);
-            let decoded = decode(encoded);
-            prop_assert_eq!(decoded, input);
-        }
-    }
+pub fn average_score(_a: f64, _b: f64) -> f64 {
+    // 实现
+    0.0
 }
 ```
 
@@ -568,25 +548,21 @@ cargo test
 # 运行特定测试
 cargo test test_name
 
-# 显示输出（包括 println!）
+# 显示输出（包括 tracing 日志）
 cargo test -- --nocapture
 
-# 运行忽略的测试
+# 运行忽略的测试（如依赖真实 LLM Provider 的用例）
 cargo test -- --ignored
 
 # 并行度控制
 cargo test -- --test-threads=1
-
-# 生成测试覆盖率报告（需要 tarpaulin）
-cargo install cargo-tarpaulin
-cargo tarpaulin --out Html --output-dir coverage
 ```
 
 ## 文档规范
 
 ### API 文档
 
-所有公共 API **必须**有文档注释：
+所有公共 API **必须**有文档注释（项目现有代码已遵循此规范）：
 
 ```rust
 /// 简短的一句话描述（祈使句，现在时）
@@ -607,26 +583,18 @@ cargo tarpaulin --out Html --output-dir coverage
 /// # Errors
 ///
 /// 列出可能返回的错误类型和触发条件：
-/// - `ErrorType1` - 当条件 X 发生时
-/// - `ErrorType2` - 当条件 Y 发生时
+/// - `EvalError::InvalidParams` - 当缺少必填参数时
 ///
 /// # Examples
 ///
 /// 基本使用：
 ///
 /// ```
-/// use your_crate::FunctionName;
+/// use eval_rs::metrics::registry::MetricRegistry;
 ///
-/// let result = function_name(arg1, arg2)?;
-/// assert_eq!(result, expected);
+/// let mut reg = MetricRegistry::new();
+/// assert!(reg.get("rouge").is_none());
 /// # Ok::<(), Box<dyn std::error::Error>>(())
-/// ```
-///
-/// 高级用法：
-///
-/// ```
-/// # use your_crate::*;
-/// // 更复杂的示例
 /// ```
 ///
 /// # Panics
@@ -637,19 +605,10 @@ cargo tarpaulin --out Html --output-dir coverage
 ///
 /// 如果是 unsafe 函数，说明安全使用的前提条件
 ///
-/// # Performance
-///
-/// 时间复杂度：O(n)
-/// 空间复杂度：O(1)
-///
 /// # See Also
 ///
-/// - [`related_function`] - 相关功能
-/// - [`OtherType`] - 相关类型
-pub fn function_name(
-    param1: Type1,
-    param2: Type2,
-) -> Result<ReturnType, Error> {
+/// - [`Metric`] - 指标 trait
+pub fn function_name(param1: Type1, param2: Type2) {
     // 实现
 }
 ```
@@ -669,7 +628,7 @@ pub fn function_name(
 //! # 使用示例
 //!
 //! ```
-//! use your_crate::module_name::*;
+//! use eval_rs::module_name::*;
 //!
 //! // 示例代码
 //! ```
@@ -677,39 +636,11 @@ pub fn function_name(
 // 模块代码
 ```
 
-### 类型文档
-
-```rust
-/// HTTP 客户端配置
-///
-/// 用于配置 HTTP 客户端的各种参数，包括超时、重试、
-/// 连接池等。
-///
-/// # Examples
-///
-/// ```
-/// use your_crate::ClientConfig;
-///
-/// let config = ClientConfig::builder()
-///     .timeout(30)
-///     .max_retries(3)
-///     .build();
-/// ```
-#[derive(Debug, Clone)]
-pub struct ClientConfig {
-    /// 请求超时时间（秒）
-    pub timeout: u64,
-
-    /// 最大重试次数
-    pub max_retries: u32,
-}
-```
-
 ### 文档最佳实践
 
 1. **使用主动语态和祈使句**：
-   - ✅ "计算两个数的和"
-   - ❌ "这个函数计算两个数的和"
+   - ✅ "计算评测分数"
+   - ❌ "这个函数计算评测分数"
 
 2. **提供可运行的示例**：
    - 所有示例代码都应该能通过 `cargo test`
@@ -722,23 +653,17 @@ pub struct ClientConfig {
 4. **说明复杂度和性能特征**：
    - 对性能敏感的 API 说明时间/空间复杂度
 
-5. **标注不稳定 API**：
-   ```rust
-   #[doc = "⚠️ **不稳定 API**：此接口可能在未来版本中变更"]
-   pub fn experimental_feature() {}
-   ```
-
 ### 生成和检查文档
 
 ```bash
 # 生成文档
-cargo doc --no-deps --all-features
+cargo doc --no-deps
 
 # 在浏览器中打开文档
-cargo doc --no-deps --all-features --open
+cargo doc --no-deps --open
 
 # 检查文档链接
-cargo doc --no-deps --all-features 2>&1 | grep warning
+cargo doc --no-deps 2>&1 | grep warning
 
 # 运行文档测试
 cargo test --doc
@@ -748,52 +673,30 @@ cargo test --doc
 
 ### 性能基准测试
 
-使用 Criterion.rs 进行性能测试：
+项目当前未内置基准测试目录。如需对指标计算或 LLM 调用路径做基准测试，可引入 `criterion` 并在 `benches/` 下编写（需同步更新 `Cargo.toml`）：
 
 ```rust
-// benches/my_benchmark.rs
+// benches/metric_bench.rs
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use your_crate::*;
+use eval_rs::metrics::bleu::BleuMetric;
 
-fn benchmark_function(c: &mut Criterion) {
-    c.bench_function("function_name", |b| {
+fn benchmark_bleu(c: &mut Criterion) {
+    c.bench_function("bleu", |b| {
         b.iter(|| {
-            function_under_test(black_box(input))
+            // 调用 BleuMetric 计算
         });
     });
 }
 
-fn benchmark_with_setup(c: &mut Criterion) {
-    let data = setup_expensive_data();
-
-    c.bench_function("with_setup", |b| {
-        b.iter(|| {
-            function_under_test(black_box(&data))
-        });
-    });
-}
-
-criterion_group!(benches, benchmark_function, benchmark_with_setup);
+criterion_group!(benches, benchmark_bleu);
 criterion_main!(benches);
 ```
 
 ### 运行基准测试
 
 ```bash
-# 运行所有基准测试
+# 运行所有基准测试（引入 criterion 后）
 cargo bench
-
-# 运行特定基准测试
-cargo bench benchmark_name
-
-# 保存基线
-cargo bench -- --save-baseline before_change
-
-# 对比基线
-cargo bench -- --baseline before_change
-
-# 生成详细报告
-cargo bench -- --verbose
 ```
 
 ### 性能回归检测
@@ -808,8 +711,7 @@ PR 不应引入明显的性能回归：
 - 使用 `cargo flamegraph` 分析性能热点
 - 使用 `cargo bloat` 分析二进制大小
 - 避免不必要的克隆和分配
-- 考虑使用 `Cow<'_, str>` 处理字符串
-- 合理使用内联 `#[inline]` 和 `#[inline(always)]`
+- 合理使用并发与背压（评测结果写入已通过容量为 1024 的有界 channel 异步落库）
 
 ## 代码审查流程
 
@@ -845,14 +747,14 @@ PR 不应引入明显的性能回归：
 
 **代码质量：**
 - 逻辑正确且健壮
-- 错误处理完善
+- 错误处理完善（统一使用 `EvalError`）
 - 边界条件考虑周全
 - 无明显的性能问题
 - 代码可读性好
 
 **设计质量：**
 - API 设计符合 Rust 惯例
-- 模块职责清晰
+- 模块职责清晰（api / engine / metrics / provider / prompts / storage 分层）
 - 抽象层次合理
 - 向后兼容性
 
@@ -860,18 +762,19 @@ PR 不应引入明显的性能回归：
 - 覆盖核心逻辑
 - 包含错误场景
 - 测试案例有代表性
-- 性能测试（如需要）
+- LLM 依赖用例使用 mock 或 `#[ignore]`
 
 **文档质量：**
-- 公共 API 有完整文档
+- 公共 API 有完整中文文档
 - 示例代码可运行
 - 复杂逻辑有注释
-- 更新了相关文档
+- 更新了相关文档（README / config / .env.example）
 
 **安全性：**
 - 输入验证充分
 - 无明显的安全漏洞
 - Unsafe 代码有充分说明
+- API 密钥仅通过环境变量注入，不写入配置文件
 - 依赖项安全可信
 
 ### 响应审查
@@ -908,7 +811,7 @@ gh pr review <pr-number> --request-changes
 ## 复现步骤
 
 1. 执行命令 '...'
-2. 调用函数 '...'
+2. 调用接口 'POST /v1/eval' 参数 '...'
 3. 观察结果 '...'
 
 ## 期望行为
@@ -937,5 +840,5 @@ fn main() {
 ## 环境信息
 
 - OS: [e.g. Ubuntu 20.04]
-- Rust 版本: [e.g. 1.60.0]
-- 工具版本: [e.g. cargo 1.60.0]
+- Rust 版本: [e.g. 1.85.0]
+- 工具版本: [e.g. cargo 1.85.0]
