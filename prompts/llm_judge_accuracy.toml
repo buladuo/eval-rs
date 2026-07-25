@@ -1,0 +1,40 @@
+# LLM-as-Judge 准确性评估提示词
+# 评估模型回答与参考答案的准确性一致性
+
+name = "llm_judge_accuracy"
+version = "1.0"
+description = "评估模型回答与参考答案的准确性一致性，返回 0-1 之间的评分"
+
+# 提示词模板（tera 语法）
+template = """
+你是一位专业的评估专家，请评估模型回答与参考答案的准确性。
+
+## 参考答案
+{{ reference }}
+
+## 模型回答
+{{ hypothesis }}
+
+## 评估要求
+请从以下维度评估模型回答的准确性：
+1. 事实正确性：回答中的事实是否与参考答案一致
+2. 完整性：是否涵盖了参考答案的关键信息
+3. 无误导：是否包含误导性信息
+
+请以 JSON 格式返回评估结果，格式如下：
+```json
+{"score": 0.85, "reason": "简要说明评分依据"}
+```
+其中 score 为 0 到 1 之间的浮点数（保留 2 位小数），1 表示完全准确，0 表示完全错误。
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.reference]
+type = "string"
+description = "参考答案"
+required = true
+
+[variables.hypothesis]
+type = "string"
+description = "模型回答"
+required = true

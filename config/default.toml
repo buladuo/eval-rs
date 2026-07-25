@@ -1,0 +1,45 @@
+# eval-rs 默认配置文件
+# 可通过环境变量 EVAL__ 前缀覆盖
+
+[server]
+host = "0.0.0.0"
+port = 8080
+
+[log]
+level = "info"
+format = "text"
+
+[limits]
+max_concurrency = 10
+requests_per_minute = 60
+# tokens_per_minute = 90000
+# tokens_per_second = 1500
+
+[eval]
+timeout_secs = 120
+
+[prompts]
+dir = "prompts"
+
+[storage]
+# 是否启用 SQLite 持久化
+enabled = true
+# SQLite 数据库文件路径
+db_path = "data/eval.db"
+
+# [providers.openai]
+# provider_type = "openai"
+# base_url = "https://api.openai.com/v1"
+# api_key = "${OPENAI_API_KEY}"
+# model = "gpt-4o"
+# default = true
+
+# OpenAI 兼容服务示例（GLM-5.2 via ccvv.toter.me 网关）
+[providers.glm]
+provider_type = "openai"
+base_url = "https://ccvv.toter.me/v1"
+# 通过环境变量 EVAL_PROVIDERS__GLM__API_KEY 设置 API 密钥
+# 请勿在配置文件中写入明文密钥
+api_key = ""
+model = "glm-5.2"
+default = true

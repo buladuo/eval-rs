@@ -1,0 +1,59 @@
+[package]
+name = "eval-rs"
+version = "0.1.0"
+edition = "2024"
+description = "A modular LLM evaluation service with HTTP API, supporting LLM-as-Judge and traditional NLP metrics"
+authors = ["eval-rs team"]
+license = "MIT"
+
+[dependencies]
+# HTTP server
+axum = { version = "0.8", features = ["macros"] }
+tokio = { version = "1", features = ["full"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace", "limit", "timeout"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# LLM integration
+rig = "0.40"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+tracing-appender = "0.2"
+
+# Rate limiting - implemented internally with token bucket
+# (removed governor due to version compatibility issues)
+
+# Template engine
+tera = "1"
+
+# Regex
+regex = "1"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Configuration
+toml = "0.8"
+config = { version = "0.15", features = ["toml"] }
+
+# UUID for request IDs
+uuid = { version = "1", features = ["v4"] }
+
+# Async helpers
+futures = "0.3"
+async-trait = "0.1"
+
+# Database — SQLite via sqlx
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "chrono", "json"] }
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+# Testing
+tracing-test = "0.2"
+mockall = "0.13"
