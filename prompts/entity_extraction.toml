@@ -1,0 +1,30 @@
+# 实体抽取（由 context_entities_recall 使用，分别对 reference 和 contexts 调用）
+
+name = "entity_extraction"
+version = "1.0"
+description = "从文本中抽取关键实体（人名、地名、组织名、时间、术语等）"
+
+template = """
+请从以下文本中抽取所有关键实体（实体指有明确指称的人名、地名、组织名、时间、专有名词、专业术语等）。
+
+## 文本
+{{ text }}
+
+## 要求
+- 抽取文本中出现的所有命名实体和关键术语
+- 实体应具体明确，不要抽取泛指代词（如"他"、"那个地方"）
+- 不要重复抽取同一实体
+- 如果有英文实体，保持原样
+
+请以 JSON 格式返回实体列表：
+```json
+{"entities": ["实体1", "实体2", "实体3"]}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.text]
+type = "string"
+description = "需要从中抽取实体的文本"
+required = true

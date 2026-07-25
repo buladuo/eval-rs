@@ -1,0 +1,47 @@
+# Answer Accuracy 第三步：判断 answer 中的声明是否在 reference 中有对应（TP vs FP）
+
+name = "answer_accuracy_match_claim"
+version = "1.0"
+description = "判断模型回答中的一个声明是否与参考答案中的某个声明语义一致（TP 判定）"
+
+template = """
+请判断以下模型回答中的声明是否在参考答案的声明中有对应的语义一致项。
+
+{% if question %}
+## 问题背景
+{{ question }}
+{% endif %}
+
+## 参考答案中的声明列表
+{{ reference_claims }}
+
+## 待验证的声明（来自模型回答）
+{{ claim }}
+
+## 要求
+- 若该声明与参考答案中某个声明在事实上一致（即使措辞不同），返回 `match=1`
+- 若该声明在参考答案中找不到对应的事实依据（即模型回答中出现了参考答案没有的信息），返回 `match=0`
+- 仅关注事实一致性，不要求措辞完全一致
+
+请以 JSON 格式返回：
+```json
+{"reason": "简要说明判断依据", "match": 1}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.reference_claims]
+type = "string"
+description = "参考答案中提取的声明列表（合并文本）"
+required = true
+
+[variables.question]
+type = "string"
+description = "用户问题（可选，提供上下文帮助判断）"
+required = false
+
+[variables.claim]
+type = "string"
+description = "待验证的声明（来自模型回答）"
+required = true

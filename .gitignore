@@ -25,6 +25,7 @@ config/*.local.toml
 
 # Generated files
 generated-images/
+data/
 
 eval.db
 

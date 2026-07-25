@@ -1,0 +1,34 @@
+# Noise Sensitivity 第二步：验证声明是否正确（相对于 ground truth）
+
+name = "noise_sensitivity_verify_claim"
+version = "1.0"
+description = "判断单个声明是否与正确答案（ground truth）一致"
+
+template = """
+## 正确答案
+{{ ground_truth }}
+
+## 待验证的声明
+{{ claim }}
+
+请判断上述声明是否与正确答案一致。
+- 若声明中的信息与正确答案一致（或可从正确答案推断），返回 `correct=1`
+- 若声明包含正确答案中没有的、错误的信息（幻觉），返回 `correct=0`
+
+请以 JSON 格式返回：
+```json
+{"reason": "简要说明判断依据", "correct": 1}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.ground_truth]
+type = "string"
+description = "正确答案（ground truth）"
+required = true
+
+[variables.claim]
+type = "string"
+description = "待验证的声明"
+required = true

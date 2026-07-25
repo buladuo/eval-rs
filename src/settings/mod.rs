@@ -220,12 +220,18 @@ impl Default for StorageConfig {
 
 /// 加载配置
 ///
-/// 优先级：环境变量 `EVAL_*` > `config/default.toml` > Rust 默认值。
+/// 优先级：`.env` 文件 > `config/default.toml` > Rust 默认值。
+///
+/// `.env` 文件中的环境变量格式：`EVAL__<section>__<field>=<value>`，
+/// 双下划线 `__` 表示嵌套层级。
 ///
 /// # Errors
 ///
 /// 配置文件解析失败返回 [`EvalError::ConfigError`]。
 pub fn load_config() -> Result<AppConfig, EvalError> {
+    // 加载 .env 文件（不存在不报错，已存在的环境变量不会被覆盖）
+    let _ = dotenvy::dotenv();
+
     let config_path =
         std::env::var("EVAL_CONFIG_PATH").unwrap_or_else(|_| "config/default.toml".to_string());
 
@@ -235,8 +241,8 @@ pub fn load_config() -> Result<AppConfig, EvalError> {
     cfg = cfg
         .add_source(::config::File::with_name(&config_path.replace(".toml", "")).required(false));
 
-    // 环境变量覆盖（前缀 EVAL_，双下划线 __ 表示嵌套）
-    cfg = cfg.add_source(::config::Environment::with_prefix("EVAL").separator("__"));
+    // 环境变量覆盖（.env 通过 dotenvy 加载后会出现在系统环境变量中）
+    cfg = cfg.add_source(::config::Environment::with_prefix("EVAL_").separator("__"));
 
     let settings = cfg
         .build()

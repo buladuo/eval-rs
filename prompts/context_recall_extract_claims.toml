@@ -1,0 +1,29 @@
+# Context Recall 第一步：从参考答案中分解出声明
+
+name = "context_recall_extract_claims"
+version = "1.0"
+description = "将参考答案分解为一组独立的、可验证的事实声明"
+
+template = """
+请将以下参考答案分解为一组独立的、可验证的事实声明（claims）。
+
+## 参考答案
+{{ reference }}
+
+## 要求
+- 每个声明应是一个完整、独立的事实陈述
+- 将参考答案中的每个独立事实点分解为单独的声明
+- 声明应足够具体，便于验证是否被上下文支持
+
+请以 JSON 格式返回声明列表：
+```json
+{"claims": ["声明1", "声明2", "声明3"]}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.reference]
+type = "string"
+description = "参考答案（ground truth）"
+required = true

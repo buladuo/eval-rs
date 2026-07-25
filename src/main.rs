@@ -78,19 +78,43 @@ async fn main() -> anyhow::Result<()> {
     // 5.2 注册 LLM 指标（Perplexity 通过 LLM 评估文本自然度）
     metric_registry.register(Box::new(PerplexityMetric::new(provider_manager.clone())));
 
-    // 5.3 注册所有以 `llm_judge_` 开头的提示词为 LLM-as-Judge 指标
-    for prompt_name in prompt_registry.list_names() {
-        if prompt_name.starts_with("llm_judge_") {
-            let metric_name = prompt_name.clone();
-            metric_registry.register(Box::new(crate::metrics::llm_judge::LlmJudgeMetric::new(
-                metric_name,
-                prompt_name,
-                None,
-                provider_manager.clone(),
-                prompt_registry.clone(),
-            )));
-        }
-    }
+    // 5.3 注册多步 LLM-as-Judge 指标套件
+    metric_registry.register(Box::new(crate::metrics::judge::AnswerAccuracy::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::Faithfulness::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::AnswerRelevancy::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::ContextPrecision::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::ContextRecall::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::ContextRelevancy::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::ContextEntitiesRecall::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::NoiseSensitivity::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
+    metric_registry.register(Box::new(crate::metrics::judge::SummarizationScore::new(
+        provider_manager.clone(),
+        prompt_registry.clone(),
+    )));
 
     let metric_registry = Arc::new(metric_registry);
 

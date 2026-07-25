@@ -2700,6 +2700,7 @@ dependencies = [
  "axum",
  "chrono",
  "config",
+ "dotenvy",
  "futures",
  "mockall",
  "regex",
