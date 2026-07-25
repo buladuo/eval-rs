@@ -1,0 +1,46 @@
+# Chunk 相关性判定（由 context_precision 和 context_relevancy 共用）
+
+name = "chunk_relevance"
+version = "1.0"
+description = "判断单个检索 chunk 是否与问题相关"
+
+template = """
+请判断以下检索到的上下文片段是否与问题相关（对回答问题有帮助）。
+
+## 问题
+{{ question }}
+
+{% if reference %}
+## 参考答案
+{{ reference }}
+{% endif %}
+
+## 待判定的上下文片段
+{{ chunk }}
+
+## 要求
+- 若该上下文片段包含回答问题所需的信息或部分信息，返回 `verdict=1`
+- 若该上下文片段与问题完全无关，返回 `verdict=0`
+
+请以 JSON 格式返回：
+```json
+{"reason": "简要说明判断依据", "verdict": 1}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.question]
+type = "string"
+description = "用户问题"
+required = true
+
+[variables.chunk]
+type = "string"
+description = "待判定的上下文片段"
+required = true
+
+[variables.reference]
+type = "string"
+description = "参考答案（可选，用于辅助判断）"
+required = false

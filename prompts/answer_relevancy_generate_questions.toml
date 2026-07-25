@@ -1,0 +1,35 @@
+# Answer Relevancy 第一步：从回答反向生成可能的问题
+
+name = "answer_relevancy_generate_questions"
+version = "1.0"
+description = "从模型回答反向生成 N 个可能的问题，用于判断回答与原始问题的相关性"
+
+template = """
+请基于以下模型回答，生成 {{ n }} 个该回答可能正在回答的问题。
+
+## 模型回答
+{{ answer }}
+
+## 要求
+- 生成恰好 {{ n }} 个问题
+- 每个问题应能通过上述回答得到满足
+- 问题应覆盖回答的不同方面
+- 问题应使用与原始提问者相似的语言风格
+
+请以 JSON 格式返回：
+```json
+{"questions": ["问题1", "问题2", "问题3"]}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.answer]
+type = "string"
+description = "模型回答"
+required = true
+
+[variables.n]
+type = "number"
+description = "要生成的问题数量，默认 3"
+required = false

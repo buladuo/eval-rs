@@ -1,0 +1,37 @@
+# Answer Relevancy 第二步：判断两个问题是否语义等价
+
+name = "answer_relevancy_match"
+version = "1.0"
+description = "判断两个问题是否在语义上等价（是否本质上是同一个问题）"
+
+template = """
+请判断以下两个问题是否在语义上等价（本质上是同一个问题，只是表达方式不同）。
+
+## 原始问题
+{{ original }}
+
+## 生成问题
+{{ generated }}
+
+## 要求
+- 若两个问题询问的是同一件事，返回 `match=1`
+- 若两个问题询问不同的事情，返回 `match=0`
+- 仅关注语义（意图），不考虑措辞差异
+
+请以 JSON 格式返回：
+```json
+{"reason": "简要说明判断依据", "match": 1}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.original]
+type = "string"
+description = "用户原始问题"
+required = true
+
+[variables.generated]
+type = "string"
+description = "从回答生成的候选问题"
+required = true

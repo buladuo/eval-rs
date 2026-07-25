@@ -1,0 +1,37 @@
+# Answer Accuracy 第四步：判断 reference 中的声明是否被 answer 覆盖（FN 判定）
+
+name = "answer_accuracy_match_ref_claim"
+version = "1.0"
+description = "判断参考答案中的一个声明是否被模型回答所覆盖（遗漏检测）"
+
+template = """
+请判断以下参考答案中的声明是否被模型回答所覆盖（即模型回答中是否提到了该事实）。
+
+## 模型回答中提取的声明列表
+{{ answer_claims }}
+
+## 待验证的声明（来自参考答案）
+{{ claim }}
+
+## 要求
+- 若该声明的信息在模型回答的某个声明中被提及（即使措辞不同），返回 `covered=1`
+- 若该声明的事实信息在模型回答中完全未被提及（遗漏），返回 `covered=0`
+- 仅关注事实是否被提及，不要求措辞完全一致
+
+请以 JSON 格式返回：
+```json
+{"reason": "简要说明判断依据", "covered": 1}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.answer_claims]
+type = "string"
+description = "模型回答中提取的声明列表（合并文本）"
+required = true
+
+[variables.claim]
+type = "string"
+description = "待验证的声明（来自参考答案）"
+required = true

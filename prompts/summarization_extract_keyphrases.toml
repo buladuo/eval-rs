@@ -1,0 +1,29 @@
+# Summarization Score 第一步：从原文中抽取关键短语
+
+name = "summarization_extract_keyphrases"
+version = "1.0"
+description = "从原文中抽取最重要的关键短语，用于生成评估问题"
+
+template = """
+请从以下原文中抽取最重要的关键短语（keyphrases）。关键短语应代表原文的核心信息点。
+
+## 原文
+{{ reference }}
+
+## 要求
+- 抽取代表原文重要信息的关键短语（短语，而非完整句子）
+- 涵盖原文中最重要的 5-10 个信息点
+- 关键短语应简洁、明确
+
+请以 JSON 格式返回关键短语列表：
+```json
+{"keyphrases": ["关键短语1", "关键短语2", "关键短语3"]}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.reference]
+type = "string"
+description = "原文内容"
+required = true

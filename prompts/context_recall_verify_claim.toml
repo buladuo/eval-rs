@@ -1,0 +1,34 @@
+# Context Recall 第二步：验证单个声明是否能被检索上下文支持
+
+name = "context_recall_verify_claim"
+version = "1.0"
+description = "判断参考答案中的一个声明是否能被检索到的上下文所支持"
+
+template = """
+## 检索到的上下文
+{{ contexts }}
+
+## 待验证的声明
+{{ claim }}
+
+请判断上述声明所描述的事实是否可以在检索到的上下文中找到依据。
+- 若上下文中包含该声明的信息或可以推断出该声明，返回 `verdict=1`
+- 若上下文未提及或无法推断该声明，返回 `verdict=0`
+
+请以 JSON 格式返回：
+```json
+{"reason": "简要说明判断依据", "verdict": 1}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.contexts]
+type = "string"
+description = "检索到的上下文（多个上下文的合并文本）"
+required = true
+
+[variables.claim]
+type = "string"
+description = "待验证的声明"
+required = true

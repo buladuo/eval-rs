@@ -1,0 +1,32 @@
+# Summarization Score 第二步：基于关键短语生成评估问题
+
+name = "summarization_generate_questions"
+version = "1.0"
+description = "基于关键短语生成一组是非问句，用于评估摘要覆盖度"
+
+template = """
+请基于以下关键短语，生成一组是非问题（每个问题对应一个关键短语中包含的信息）。
+
+## 关键短语
+{% for kp in keyphrases %}
+- {{ kp }}
+{% endfor %}
+
+## 要求
+- 为每个关键短语生成一个是否提到该信息的问句
+- 问题应以"摘要中是否提到..."或类似句式
+- 问题数量应等于关键短语数量
+- 对原文来说，这些问题的答案应全部是"是"
+
+请以 JSON 格式返回问题列表：
+```json
+{"questions": ["问题1", "问题2", "问题3"]}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.keyphrases]
+type = "array"
+description = "从原文中抽取的关键短语列表"
+required = true

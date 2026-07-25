@@ -1,0 +1,29 @@
+# Noise Sensitivity 第一步：从回答中分解出声明
+
+name = "noise_sensitivity_extract_claims"
+version = "1.0"
+description = "将模型回答分解为一组独立的声明，用于噪声敏感性评估"
+
+template = """
+请将以下模型回答分解为一组独立的、可验证的事实声明（claims）。
+
+## 模型回答
+{{ response }}
+
+## 要求
+- 每个声明应是一个完整、独立的事实陈述
+- 将回答中的每个事实点分解为单独的声明
+- 不要添加、修改或遗漏任何信息
+
+请以 JSON 格式返回声明列表：
+```json
+{"claims": ["声明1", "声明2", "声明3"]}
+```
+
+仅返回 JSON，不要其他内容。
+"""
+
+[variables.response]
+type = "string"
+description = "待分解的模型回答"
+required = true
