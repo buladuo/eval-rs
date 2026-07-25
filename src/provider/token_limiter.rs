@@ -119,12 +119,6 @@ impl TokenLimiter {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }
     }
-
-    /// 获取当前可用令牌数（仅用于测试）
-    #[cfg(test)]
-    pub(crate) async fn available(&self) -> f64 {
-        *self.inner.tokens.lock().await
-    }
 }
 
 #[cfg(test)]

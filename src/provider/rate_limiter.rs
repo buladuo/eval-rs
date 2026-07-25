@@ -57,7 +57,8 @@ impl RateLimiter {
     /// 不会 panic。
     pub fn new(rpm: u64) -> Self {
         // 每 1000ms 补充 rpm 个令牌 → 每 1000/rpm ms 补充 1 个令牌
-        let interval_ms = if rpm > 0 { 1000 / rpm } else { 1 };
+        // 使用 checked_div 避免除零，rpm 为 0 时回退到 1ms 间隔
+        let interval_ms = 1000u64.checked_div(rpm).unwrap_or(1);
         Self {
             refill_interval: Duration::from_millis(interval_ms.max(1)),
             inner: Mutex::new(RateLimiterInner {
@@ -110,12 +111,6 @@ impl RateLimiter {
             tokio::time::sleep(self.refill_interval).await;
         }
     }
-
-    /// 获取当前可用令牌数（仅用于测试）
-    #[cfg(test)]
-    pub(crate) async fn available(&self) -> u64 {
-        self.inner.lock().await.available
-    }
 }
 
 impl RateLimiterInner {
@@ -143,16 +138,10 @@ mod tests {
     async fn test_rate_limit_within_capacity() {
         let limiter = RateLimiter::new(5);
         for _ in 0..5 {
-            assert!(limiter
-                .acquire(Duration::from_millis(10))
-                .await
-                .is_ok());
+            assert!(limiter.acquire(Duration::from_millis(10)).await.is_ok());
         }
         // 第6个应超时（5 RPM = 1 token / 12s，10ms 内无法补充）
-        assert!(limiter
-            .acquire(Duration::from_millis(50))
-            .await
-            .is_err());
+        assert!(limiter.acquire(Duration::from_millis(50)).await.is_err());
     }
 
     #[tokio::test]
@@ -165,9 +154,6 @@ mod tests {
         }
         // 等待令牌补充（100ms 后应至少补充 1 个）
         tokio::time::sleep(Duration::from_millis(150)).await;
-        assert!(limiter
-            .acquire(Duration::from_millis(10))
-            .await
-            .is_ok());
+        assert!(limiter.acquire(Duration::from_millis(10)).await.is_ok());
     }
 }
