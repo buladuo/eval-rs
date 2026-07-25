@@ -53,7 +53,7 @@ async fn main() -> anyhow::Result<()> {
     let config: AppConfig = settings::load_config()?;
 
     // 2. 初始化全局日志（JSON / 文本，根据 LogConfig 选择）
-    logging::init_logging(&config.log);
+    let log_broadcaster = logging::init_logging(&config.log);
 
     tracing::info!("eval-rs 服务启动中...");
 
@@ -82,15 +82,13 @@ async fn main() -> anyhow::Result<()> {
     for prompt_name in prompt_registry.list_names() {
         if prompt_name.starts_with("llm_judge_") {
             let metric_name = prompt_name.clone();
-            metric_registry.register(Box::new(
-                crate::metrics::llm_judge::LlmJudgeMetric::new(
-                    metric_name,
-                    prompt_name,
-                    None,
-                    provider_manager.clone(),
-                    prompt_registry.clone(),
-                ),
-            ));
+            metric_registry.register(Box::new(crate::metrics::llm_judge::LlmJudgeMetric::new(
+                metric_name,
+                prompt_name,
+                None,
+                provider_manager.clone(),
+                prompt_registry.clone(),
+            )));
         }
     }
 
@@ -120,7 +118,7 @@ async fn main() -> anyhow::Result<()> {
     let engine = Arc::new(engine_builder);
 
     // 8. 构建 axum 路由并启动 HTTP 服务
-    let app = api::build_router(engine, storage);
+    let app = api::build_router(engine, storage, log_broadcaster);
 
     let addr = format!("{}:{}", config.server.host, config.server.port);
     tracing::info!("HTTP 服务监听在 {addr}");

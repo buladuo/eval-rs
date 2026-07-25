@@ -17,6 +17,7 @@
 //! | GET    | `/v1/results`              | 分页查询评测历史           |
 //! | GET    | `/v1/results/{id}`         | 查询单条评测记录           |
 //! | GET    | `/v1/results/aggregate`    | 按指标聚合统计             |
+//! | GET    | `/v1/logs/stream`          | SSE 实时日志流             |
 //!
 //! # 安全防护
 //!
@@ -37,6 +38,7 @@ use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::timeout::TimeoutLayer;
 
 use crate::engine::EvalEngine;
+use crate::logging::broadcaster::LogBroadcaster;
 use crate::storage::SqliteStore;
 
 /// 默认请求体大小限制（1 MiB）
@@ -47,21 +49,27 @@ pub const DEFAULT_REQUEST_TIMEOUT_SECS: u64 = 30;
 
 /// 构建应用根路由（使用默认防护参数）
 ///
-/// 等价于 [`build_router_with_limits`]`(engine, storage, DEFAULT_BODY_LIMIT_BYTES,
-/// Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))`。
+/// 等价于 [`build_router_with_limits`]`(engine, storage, broadcaster,
+/// DEFAULT_BODY_LIMIT_BYTES, Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS))`。
 ///
 /// # Arguments
 ///
 /// * `engine` - 已初始化的评测引擎 [`EvalEngine`]
 /// * `storage` - 可选的 SQLite 存储；当 `None` 时历史查询类接口将返回 500
+/// * `log_broadcaster` - 日志广播器，用于 SSE 日志流端点
 ///
 /// # Returns
 ///
 /// 可直接通过 [`axum::serve`] 启动的 [`Router`]。
-pub fn build_router(engine: Arc<EvalEngine>, storage: Option<Arc<SqliteStore>>) -> Router {
+pub fn build_router(
+    engine: Arc<EvalEngine>,
+    storage: Option<Arc<SqliteStore>>,
+    log_broadcaster: Arc<LogBroadcaster>,
+) -> Router {
     build_router_with_limits(
         engine,
         storage,
+        log_broadcaster,
         DEFAULT_BODY_LIMIT_BYTES,
         Duration::from_secs(DEFAULT_REQUEST_TIMEOUT_SECS),
     )
@@ -76,6 +84,7 @@ pub fn build_router(engine: Arc<EvalEngine>, storage: Option<Arc<SqliteStore>>) 
 ///
 /// * `engine` - 已初始化的评测引擎 [`EvalEngine`]
 /// * `storage` - 可选的 SQLite 存储；当 `None` 时历史查询类接口将返回 500
+/// * `log_broadcaster` - 日志广播器，用于 SSE 日志流端点
 /// * `body_limit_bytes` - 请求体最大字节数
 /// * `request_timeout` - 单个请求的全局超时
 ///
@@ -93,6 +102,7 @@ pub fn build_router(engine: Arc<EvalEngine>, storage: Option<Arc<SqliteStore>>) 
 /// # use eval_rs::metrics::registry::MetricRegistry;
 /// # use eval_rs::provider::ProviderManager;
 /// # use eval_rs::prompts::registry::PromptRegistry;
+/// # use eval_rs::logging::broadcaster::LogBroadcaster;
 /// # use std::collections::HashMap;
 /// # use eval_rs::settings::LimitsConfig;
 /// # async fn _example() {
@@ -100,9 +110,11 @@ pub fn build_router(engine: Arc<EvalEngine>, storage: Option<Arc<SqliteStore>>) 
 /// let providers = Arc::new(ProviderManager::new(HashMap::new(), &LimitsConfig::default()));
 /// let prompts = Arc::new(PromptRegistry::new());
 /// let engine = Arc::new(EvalEngine::new(metrics, providers, prompts, 120));
+/// let broadcaster = Arc::new(LogBroadcaster::new());
 /// let router = build_router_with_limits(
 ///     engine,
 ///     None,
+///     broadcaster,
 ///     2 * 1024 * 1024,
 ///     Duration::from_secs(60),
 /// );
@@ -111,6 +123,7 @@ pub fn build_router(engine: Arc<EvalEngine>, storage: Option<Arc<SqliteStore>>) 
 pub fn build_router_with_limits(
     engine: Arc<EvalEngine>,
     storage: Option<Arc<SqliteStore>>,
+    log_broadcaster: Arc<LogBroadcaster>,
     body_limit_bytes: usize,
     request_timeout: Duration,
 ) -> Router {
@@ -118,14 +131,18 @@ pub fn build_router_with_limits(
     let health_state = routes::AppState {
         engine: engine.clone(),
         storage: storage.clone(),
+        log_broadcaster: log_broadcaster.clone(),
     };
 
     Router::new()
-        .nest("/v1", routes::v1_routes(engine, storage))
+        .nest("/v1", routes::v1_routes(engine, storage, log_broadcaster))
         .route(
             "/health",
             axum::routing::get(routes::health::health_check).with_state(health_state),
         )
         .layer(RequestBodyLimitLayer::new(body_limit_bytes))
-        .layer(TimeoutLayer::with_status_code(axum::http::StatusCode::GATEWAY_TIMEOUT, request_timeout))
+        .layer(TimeoutLayer::with_status_code(
+            axum::http::StatusCode::GATEWAY_TIMEOUT,
+            request_timeout,
+        ))
 }

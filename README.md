@@ -9,12 +9,12 @@
 ## 特性
 
 - **双引擎指标**：内置 LLM-as-Judge 指标（`llm_judge_accuracy` / `llm_judge_fluency` / `llm_judge_relevance`）与传统 NLP 指标（`bleu` / `rouge` / `perplexity`），指标通过统一 `Metric` trait 注册，可热插拔扩展。
-- **HTTP API（axum）**：RESTful 接口，支持单次评测、批量评测（后台任务 + 状态查询）、指标列表、结果分页查询、聚合统计与 JSON 导出。
+- **HTTP API（axum）**：RESTful 接口，支持单次评测、批量评测（后台任务 + 状态查询）、指标列表、结果分页查询、聚合统计、JSON 导出与 SSE 实时日志流。
 - **多 Provider 支持**：基于 `rig` 封装 OpenAI / Anthropic 及任意 OpenAI 兼容服务；支持重试（指数退避）、并发控制、RPM / Token 限流。
 - **提示词模板化**：提示词以 TOML 文件管理，使用 `tera` 模板引擎渲染，变量经 schema 描述与校验。
 - **输入预处理**：支持 `json_path` 与 `regex` 两种方式从复杂负载中抽取评测字段。
 - **结果持久化**：结果异步（带背压的有界 channel）写入 SQLite，支持多维度过滤查询、时间范围聚合与文件下载。
-- **可观测性**：基于 `tracing` 的结构化日志（文本 / JSON），健康检查端点探测依赖状态。
+- **可观测性**：基于 `tracing` 的结构化日志（文本 / JSON），健康检查端点探测依赖状态，SSE 实时日志流支持前端在线查看。
 - **安全防护**：全局请求体大小限制（默认 1 MiB）与请求超时（默认 30s），防止资源耗尽与慢速攻击。
 
 ---
@@ -26,6 +26,7 @@
    HTTP Client ─▶│  api (axum)                                  │
                  │   /health  /v1/eval  /v1/metrics             │
                  │   /v1/results  (/aggregate, /download)       │
+                 │   /v1/logs/stream (SSE 实时日志)              │
                  └───────────────┬────────────────────────────┘
                                  │
                                  ▼
@@ -60,7 +61,7 @@
 | `storage` | SQLite 持久化与查询/聚合 |
 | `settings` | 配置加载（TOML + 环境变量覆盖） |
 | `error` | 统一错误类型 `EvalError` |
-| `logging` | `tracing` 日志初始化（文本/JSON、文件滚动） |
+| `logging` | `tracing` 日志初始化（文本/JSON、文件滚动、SSE 广播） |
 
 ---
 
@@ -162,6 +163,7 @@ curl -X POST http://localhost:8080/v1/eval \
 | GET | `/v1/results/aggregate` | 按指标聚合统计（均值/计数等） |
 | GET | `/v1/results/download` | 按查询条件批量下载结果为 JSON 文件 |
 | GET | `/v1/results/{id}/download` | 下载单条记录为 JSON 文件 |
+| GET | `/v1/logs/stream` | SSE 实时日志流（`text/event-stream`） |
 
 ### `POST /v1/eval`
 
@@ -214,6 +216,44 @@ curl http://localhost:8080/v1/metrics
 ```bash
 curl "http://localhost:8080/v1/results?metric=rouge&limit=10"
 curl "http://localhost:8080/v1/results/aggregate?metric=rouge"
+```
+
+### `GET /v1/logs/stream`
+
+SSE（Server-Sent Events）端点，实时推送结构化日志事件给前端，便于在线调试与可观测性。
+
+- 响应 Content-Type：`text/event-stream`
+- 每条日志以 `data: <json>\n\n` 格式发送
+- 空闲时每 15 秒发送 `: ping` 心跳注释，保持连接活跃
+- 客户端断开连接时流自动结束
+- 当消费者落后超过通道容量（1024）时，最旧事件会被丢弃
+
+事件数据结构：
+
+```json
+{
+  "timestamp": "2026-07-25T12:00:00.000Z",
+  "level": "INFO",
+  "message": "日志消息文本",
+  "target": "eval_rs::engine",
+  "file": "src/engine/orchestrator.rs",
+  "line": 42
+}
+```
+
+```bash
+# 使用 curl 订阅日志流（-N 禁用缓冲）
+curl -N http://localhost:8080/v1/logs/stream
+```
+
+浏览器端使用 `EventSource`：
+
+```js
+const es = new EventSource('/v1/logs/stream');
+es.onmessage = (e) => {
+  const entry = JSON.parse(e.data);
+  console.log(`[${entry.level}] ${entry.message}`);
+};
 ```
 
 ### `GET /health`

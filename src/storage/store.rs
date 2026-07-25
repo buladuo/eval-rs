@@ -5,7 +5,7 @@ use std::str::FromStr;
 use chrono::{DateTime, Utc};
 use serde_json::Value;
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePoolOptions};
-use sqlx::{SqlitePool, Row};
+use sqlx::{Row, SqlitePool};
 
 use crate::error::EvalError;
 
@@ -24,9 +24,8 @@ impl SqliteStore {
         if let Some(parent) = std::path::Path::new(db_path).parent()
             && !parent.as_os_str().is_empty()
         {
-            std::fs::create_dir_all(parent).map_err(|e| {
-                EvalError::Internal(format!("创建数据库目录失败: {e}"))
-            })?;
+            std::fs::create_dir_all(parent)
+                .map_err(|e| EvalError::Internal(format!("创建数据库目录失败: {e}")))?;
         }
 
         let opts = SqliteConnectOptions::from_str(&format!("sqlite://{db_path}"))
@@ -111,7 +110,10 @@ impl SqliteStore {
     /// * `model` - 模型名称（可选）
     /// * `input` - 输入数据（JSON）
     /// * `params` - 评测参数（JSON）
-    #[allow(clippy::too_many_arguments, reason = "数据库写入接口，参数均为必需字段")]
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "数据库写入接口，参数均为必需字段"
+    )]
     pub async fn insert(
         &self,
         request_id: &str,
@@ -243,8 +245,7 @@ impl SqliteStore {
                     .try_get("created_at")
                     .map_err(|e| EvalError::Internal(e.to_string()))?;
 
-                let details: Value = serde_json::from_str(&details_str)
-                    .unwrap_or(Value::Null);
+                let details: Value = serde_json::from_str(&details_str).unwrap_or(Value::Null);
                 let input: Value = serde_json::from_str(&input_str).unwrap_or(Value::Null);
                 let params: Value = serde_json::from_str(&params_str).unwrap_or(Value::Null);
                 let created_at = DateTime::parse_from_rfc3339(&created_at_str)
@@ -252,7 +253,9 @@ impl SqliteStore {
                     .unwrap_or_else(|_| Utc::now());
 
                 Ok(EvalResultRow {
-                    id: row.try_get("id").map_err(|e| EvalError::Internal(e.to_string()))?,
+                    id: row
+                        .try_get("id")
+                        .map_err(|e| EvalError::Internal(e.to_string()))?,
                     request_id: row
                         .try_get("request_id")
                         .map_err(|e| EvalError::Internal(e.to_string()))?,
@@ -317,7 +320,9 @@ impl SqliteStore {
                     .unwrap_or_else(|_| Utc::now());
 
                 Ok(Some(EvalResultRow {
-                    id: row.try_get("id").map_err(|e| EvalError::Internal(e.to_string()))?,
+                    id: row
+                        .try_get("id")
+                        .map_err(|e| EvalError::Internal(e.to_string()))?,
                     request_id: row
                         .try_get("request_id")
                         .map_err(|e| EvalError::Internal(e.to_string()))?,
@@ -394,7 +399,9 @@ impl SqliteStore {
                     .unwrap_or_else(|_| Utc::now());
 
                 Ok(Some(EvalResultRow {
-                    id: row.try_get("id").map_err(|e| EvalError::Internal(e.to_string()))?,
+                    id: row
+                        .try_get("id")
+                        .map_err(|e| EvalError::Internal(e.to_string()))?,
                     request_id: row
                         .try_get("request_id")
                         .map_err(|e| EvalError::Internal(e.to_string()))?,
@@ -493,7 +500,7 @@ impl SqliteStore {
                 FROM eval_results
                 WHERE {cond}
                 "#,
-                cond = &where_conditions,
+                cond = where_conditions,
             );
 
             // 参数绑定顺序：子查询1(metric,[start],[end]) + 子查询2(metric,[start],[end]) + 外层(metric,[start],[end])
@@ -653,7 +660,16 @@ mod tests {
     async fn test_get_by_id() {
         let store = open_test_db().await;
         let id = store
-            .insert("req-x", "rouge", 0.7, &json!({}), None, None, &json!({}), &json!({}))
+            .insert(
+                "req-x",
+                "rouge",
+                0.7,
+                &json!({}),
+                None,
+                None,
+                &json!({}),
+                &json!({}),
+            )
             .await
             .unwrap();
 
@@ -670,7 +686,16 @@ mod tests {
         let store = open_test_db().await;
         for s in [0.5, 0.6, 0.7, 0.8, 0.9] {
             store
-                .insert("req", "rouge", s, &json!({}), None, None, &json!({}), &json!({}))
+                .insert(
+                    "req",
+                    "rouge",
+                    s,
+                    &json!({}),
+                    None,
+                    None,
+                    &json!({}),
+                    &json!({}),
+                )
                 .await
                 .unwrap();
         }
@@ -692,7 +717,16 @@ mod tests {
         let early_time = "2020-01-01T00:00:00+00:00";
         for s in [0.4, 0.5, 0.6] {
             store
-                .insert("req-early", "rouge", s, &json!({}), None, None, &json!({}), &json!({}))
+                .insert(
+                    "req-early",
+                    "rouge",
+                    s,
+                    &json!({}),
+                    None,
+                    None,
+                    &json!({}),
+                    &json!({}),
+                )
                 .await
                 .unwrap();
             // 直接 UPDATE 已插入行的 created_at，模拟早期时间
@@ -707,7 +741,16 @@ mod tests {
         // 近期数据：2 条，均值 0.9
         for s in [0.85, 0.95] {
             store
-                .insert("req-late", "rouge", s, &json!({}), None, None, &json!({}), &json!({}))
+                .insert(
+                    "req-late",
+                    "rouge",
+                    s,
+                    &json!({}),
+                    None,
+                    None,
+                    &json!({}),
+                    &json!({}),
+                )
                 .await
                 .unwrap();
         }
@@ -746,7 +789,16 @@ mod tests {
     async fn test_delete() {
         let store = open_test_db().await;
         let id = store
-            .insert("req-d", "rouge", 0.5, &json!({}), None, None, &json!({}), &json!({}))
+            .insert(
+                "req-d",
+                "rouge",
+                0.5,
+                &json!({}),
+                None,
+                None,
+                &json!({}),
+                &json!({}),
+            )
             .await
             .unwrap();
         assert!(store.delete_by_id(id).await.unwrap());
