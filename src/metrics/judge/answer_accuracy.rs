@@ -36,13 +36,26 @@ use crate::error::EvalError;
 use crate::prompts::registry::PromptRegistry;
 use crate::provider::manager::ProviderManager;
 
-/// Answer Accuracy 指标
+/// Answer Accuracy（答案准确性）指标
+///
+/// 基于多步 LLM-as-Judge 流程实现的评测指标，实现了
+/// [`super::super::registry::Metric`] trait。持有一个 LLM provider 管理器与一个提示词
+/// 注册表的 [`Arc`] 共享引用，在执行 [`Metric::evaluate`] 时用于渲染并调用 LLM
+/// 完成多步事实一致性判断。
 pub struct AnswerAccuracy {
+    /// LLM provider 管理器（共享引用），用于调用 LLM 完成评测。
     providers: Arc<ProviderManager>,
+    /// 提示词注册表（共享引用），按名称渲染 judge 提示词模板。
     prompts: Arc<PromptRegistry>,
 }
 
 impl AnswerAccuracy {
+    /// 创建一个新的 Answer Accuracy 指标实例。
+    ///
+    /// # Arguments
+    ///
+    /// * `providers` - LLM provider 管理器共享引用。
+    /// * `prompts` - 提示词注册表共享引用。
     pub fn new(providers: Arc<ProviderManager>, prompts: Arc<PromptRegistry>) -> Self {
         Self { providers, prompts }
     }
@@ -75,6 +88,24 @@ impl Metric for AnswerAccuracy {
         schema
     }
 
+    /// 执行该指标的评测。
+    ///
+    /// 按照本模块说明中描述的流程，依次渲染提示词、调用 LLM 完成多步判断，
+    /// 最后对结果做数学聚合得到评分。
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - 指标参数，支持可选字段 `provider` / `model` / `prompt_version`。
+    /// * `input` - 评测输入数据（`serde_json::Value`），具体字段由各指标定义，详见模块级文档。
+    ///
+    /// # Returns
+    ///
+    /// 成功时返回 [`MetricOutput`]，其中 `score` 为本指标评分（范围依指标而定）。
+    ///
+    /// # Errors
+    ///
+    /// 当必需输入字段缺失、提示词未找到、LLM 调用失败或响应无法解析为预期结构时，
+    /// 返回 [`EvalError`]。
     async fn evaluate(
         &self,
         params: &HashMap<String, Value>,

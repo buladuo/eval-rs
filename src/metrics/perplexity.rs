@@ -61,7 +61,22 @@ impl Metric for PerplexityMetric {
         schema
     }
 
-    /// 执行 perplexity 评测
+    /// 执行 Perplexity 评测。
+    ///
+    /// 将 `input` 中的 `text` 交给 LLM 评估自然度，并把返回的 1-100 评分转换为困惑度。
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - 参数键值，支持可选 `provider` / `model`。
+    /// * `input` - 评测输入，需含 `text` 字符串字段。
+    ///
+    /// # Returns
+    ///
+    /// 返回 [`MetricOutput`]，其中 `score` 为困惑度（越低越好）。
+    ///
+    /// # Errors
+    ///
+    /// 当 `text` 字段缺失、LLM 调用失败或返回无法解析为数字时返回 [`EvalError`]。
     async fn evaluate(
         &self,
         params: &HashMap<String, Value>,

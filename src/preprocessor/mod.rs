@@ -19,9 +19,24 @@ pub enum PreprocessConfig {
     Regex { regex: String },
 }
 
-/// 对输入执行预处理
+/// 对输入执行预处理。
 ///
-/// 根据配置对输入进行提取和转换，返回处理后的值。
+/// 根据 [`PreprocessConfig`] 配置对输入进行提取与转换，返回处理后的值。
+/// 当配置为 [`PreprocessConfig::JsonPath`] 时按点分路径提取并自动转换；
+/// 当配置为 [`PreprocessConfig::Regex`] 时要求输入为字符串并按正则提取。
+///
+/// # Arguments
+///
+/// * `input` - 待处理的输入数据（`serde_json::Value`）。
+/// * `config` - 预处理配置，决定提取与转换方式。
+///
+/// # Returns
+///
+/// 成功时返回处理后的 [`serde_json::Value`]。
+///
+/// # Errors
+///
+/// 当 JSON 路径不存在、输入非字符串却使用正则提取、或正则表达式无效时返回 [`EvalError`]。
 pub fn preprocess(input: &Value, config: &PreprocessConfig) -> Result<Value, EvalError> {
     match config {
         PreprocessConfig::JsonPath { json_path } => {

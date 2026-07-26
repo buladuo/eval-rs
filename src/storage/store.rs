@@ -18,7 +18,22 @@ pub struct SqliteStore {
 }
 
 impl SqliteStore {
-    /// 创建并打开数据库，自动建表
+    /// 创建并打开数据库，自动建表并迁移。
+    ///
+    /// 若数据库文件所在目录不存在会自动创建；以 WAL 日志模式打开连接池
+    /// （最大 8 连接），并在返回前执行表结构迁移。
+    ///
+    /// # Arguments
+    ///
+    /// * `db_path` - SQLite 数据库文件路径（如 `data/eval.db`）。
+    ///
+    /// # Returns
+    ///
+    /// 成功返回 [`SqliteStore`] 句柄。
+    ///
+    /// # Errors
+    ///
+    /// 目录创建失败、连接参数无效、连接失败或建表失败时返回 [`EvalError::Internal`]。
     pub async fn open(db_path: &str) -> Result<Self, EvalError> {
         // 确保父目录存在
         if let Some(parent) = std::path::Path::new(db_path).parent()
@@ -156,7 +171,22 @@ impl SqliteStore {
         Ok(result.last_insert_rowid())
     }
 
-    /// 按条件查询评测结果
+    /// 按条件查询评测结果。
+    ///
+    /// 支持按指标、请求 ID、分数范围、时间范围、provider、model 组合过滤，
+    /// 结果按创建时间倒序返回，并受 `limit`（1-100）与 `offset` 分页约束。
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - 查询条件与分页参数（[`QueryParams`]）。
+    ///
+    /// # Returns
+    ///
+    /// 返回匹配条件的 [`EvalResultRow`] 列表。
+    ///
+    /// # Errors
+    ///
+    /// 数据库查询失败时返回 [`EvalError::Internal`]。
     pub async fn query(&self, params: &QueryParams) -> Result<Vec<EvalResultRow>, EvalError> {
         let limit = params.limit.clamp(1, 100);
         let offset = params.offset;
@@ -282,7 +312,19 @@ impl SqliteStore {
         Ok(results)
     }
 
-    /// 按 ID 查询单条记录
+    /// 按 ID 查询单条记录。
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - 评测结果记录的主键 ID。
+    ///
+    /// # Returns
+    ///
+    /// 找到返回 `Some(EvalResultRow)`，否则 `None`。
+    ///
+    /// # Errors
+    ///
+    /// 数据库查询失败时返回 [`EvalError::Internal`]。
     pub async fn get_by_id(&self, id: i64) -> Result<Option<EvalResultRow>, EvalError> {
         let row = sqlx::query(
             r#"
@@ -427,7 +469,24 @@ impl SqliteStore {
         }
     }
 
-    /// 按指标聚合统计
+    /// 按指标聚合统计。
+    ///
+    /// 计算指定指标的记录数、平均/最大/最小分数与标准差；可通过时间范围过滤。
+    /// 标准差因 SQLite 不直接支持 `STDDEV`，由两次子查询手动计算方差后开方得到。
+    ///
+    /// # Arguments
+    ///
+    /// * `metric` - 指标名称。
+    /// * `start_time` - 起始时间（RFC3339），可选。
+    /// * `end_time` - 结束时间（RFC3339），可选。
+    ///
+    /// # Returns
+    ///
+    /// 返回 [`AggregationResult`]，含 `count`/`avg_score`/`max_score`/`min_score`/`stddev`。
+    ///
+    /// # Errors
+    ///
+    /// 数据库查询失败时返回 [`EvalError::Internal`]。
     pub async fn aggregate(
         &self,
         metric: &str,
@@ -550,7 +609,19 @@ impl SqliteStore {
         })
     }
 
-    /// 删除指定 ID 的记录
+    /// 删除指定 ID 的记录。
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - 待删除记录的主键 ID。
+    ///
+    /// # Returns
+    ///
+    /// 若成功删除至少一行返回 `true`，否则 `false`。
+    ///
+    /// # Errors
+    ///
+    /// 数据库删除失败时返回 [`EvalError::Internal`]。
     pub async fn delete_by_id(&self, id: i64) -> Result<bool, EvalError> {
         let result = sqlx::query("DELETE FROM eval_results WHERE id = ?;")
             .bind(id)

@@ -6,10 +6,22 @@ use serde_json::Value;
 
 use crate::error::EvalError;
 
-/// 自动转换格式
+/// 自动转换格式。
 ///
 /// 若输入是字符串且内容为合法 JSON，则解析为 JSON 对象；
-/// 否则保持字符串形式。
+/// 否则保持原值不变。
+///
+/// # Arguments
+///
+/// * `value` - 待转换的值。
+///
+/// # Returns
+///
+/// 转换后的 [`serde_json::Value`]。若无法解析为 JSON 则原样返回。
+///
+/// # Errors
+///
+/// 该函数不会返回错误（始终返回 `Ok`）。
 pub fn auto_convert(value: Value) -> Result<Value, EvalError> {
     match value {
         Value::String(ref s) => {
