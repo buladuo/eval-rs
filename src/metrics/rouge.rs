@@ -43,7 +43,23 @@ impl Metric for RougeMetric {
         schema
     }
 
-    /// 执行 ROUGE 评测
+    /// 执行 ROUGE 评测。
+    ///
+    /// 根据参数 `variant` 选择 ROUGE-N 或 ROUGE-L，从 `input` 取出 `reference` 与
+    /// `hypothesis` 文本进行打分。
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - 参数键值，支持 `variant`（默认 `"n"`）与 `n`（仅 ROUGE-N，默认 1）。
+    /// * `input` - 评测输入，需含 `reference` 与 `hypothesis` 字符串字段。
+    ///
+    /// # Returns
+    ///
+    /// 返回 [`MetricOutput`]，其中 `score` 为 F1 分数（0.0~1.0）。
+    ///
+    /// # Errors
+    ///
+    /// 当 `reference` 或 `hypothesis` 字段缺失时返回 [`EvalError::InvalidParams`]。
     async fn evaluate(
         &self,
         params: &HashMap<String, Value>,

@@ -40,7 +40,22 @@ impl Metric for BleuMetric {
         schema
     }
 
-    /// 执行 BLEU 评测
+    /// 执行 BLEU 评测。
+    ///
+    /// 从 `input` 中取出 `reference` 与 `hypothesis` 文本，按参数 `n` 计算 BLEU-N 分数。
+    ///
+    /// # Arguments
+    ///
+    /// * `params` - 参数键值，支持 `n`（最大 N-gram 大小，1-4，默认 4）。
+    /// * `input` - 评测输入，需含 `reference` 与 `hypothesis` 字符串字段。
+    ///
+    /// # Returns
+    ///
+    /// 返回 [`MetricOutput`]，其中 `score` 为 BLEU 分数（0.0~1.0）。
+    ///
+    /// # Errors
+    ///
+    /// 当 `reference` 或 `hypothesis` 字段缺失时返回 [`EvalError::InvalidParams`]。
     async fn evaluate(
         &self,
         params: &HashMap<String, Value>,

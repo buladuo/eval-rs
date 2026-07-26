@@ -42,10 +42,22 @@ pub fn render(template: &PromptTemplate, context: Context) -> Result<String, Eva
     Ok(rendered)
 }
 
-/// 从 JSON Value 创建 tera Context
+/// 从 JSON Value 创建 tera Context。
 ///
-/// 若 value 是对象，将每个字段作为独立变量注入；
-/// 否则将整个 value 作为 `"input"` 变量。
+/// 若 `value` 是对象，将每个字段作为独立变量注入；
+/// 否则将整个 `value` 作为 `"input"` 变量注入。
+///
+/// # Arguments
+///
+/// * `value` - 用于构建渲染上下文的 JSON 值。
+///
+/// # Returns
+///
+/// 返回包含注入变量的 [`tera::Context`]。
+///
+/// # Errors
+///
+/// 该函数不会返回错误（始终返回 `Ok`）。
 pub fn context_from_json(value: &serde_json::Value) -> Result<Context, EvalError> {
     let mut context = Context::new();
 

@@ -6,10 +6,23 @@ use regex::Regex;
 
 use crate::error::EvalError;
 
-/// 按正则从文本中提取内容
+/// 按正则从文本中提取内容。
 ///
 /// 若正则包含捕获组，返回第一个捕获组的内容；
 /// 否则返回整个匹配的内容。
+///
+/// # Arguments
+///
+/// * `text` - 待提取的源文本。
+/// * `pattern` - 正则表达式字符串，可包含捕获组。
+///
+/// # Returns
+///
+/// 成功时返回提取到的字符串。
+///
+/// # Errors
+///
+/// 当正则无效时返回 [`EvalError::InvalidParams`]；当无匹配时返回 [`EvalError::RegexNoMatch`]。
 pub fn extract_by_regex(text: &str, pattern: &str) -> Result<String, EvalError> {
     let re = Regex::new(pattern)
         .map_err(|e| EvalError::InvalidParams(format!("无效的正则表达式: {e}")))?;
